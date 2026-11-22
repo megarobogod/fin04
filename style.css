@@ -1,0 +1,46 @@
+/* Black and white, with red only for blood. */
+:root { color-scheme: dark; --red: #a00808; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+body { display: grid; place-items: center; font-family: Georgia, 'Times New Roman', serif; color: #eee; }
+
+#frame {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  user-select: none;
+  cursor: crosshair;
+}
+#screen { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* ---- HUD ---- */
+#hud { position: absolute; inset: 0; pointer-events: none; font-family: 'Courier New', monospace; font-weight: bold; text-shadow: 0 0 4px #000, 2px 2px 0 #000; }
+#hud[hidden] { display: none; }
+#top { position: absolute; top: 2.5%; left: 0; right: 0; text-align: center; letter-spacing: .3em; font-size: clamp(11px, 1.6vw, 20px); color: #ccc; }
+#top b { color: #fff; }
+#msg { position: absolute; top: 30%; left: 0; right: 0; text-align: center; font-family: Georgia, serif; font-size: clamp(18px, 3.4vw, 44px); letter-spacing: .25em; }
+#reload { position: absolute; top: 58%; left: 0; right: 0; text-align: center; font-size: clamp(10px, 1.3vw, 16px); letter-spacing: .3em; color: #ccc; }
+#health { position: absolute; left: 3%; bottom: 4%; font-size: clamp(12px, 1.8vw, 24px); }
+#health span, #ammo b { color: #aaa; font-size: .7em; letter-spacing: .2em; }
+#health i { display: block; width: clamp(80px, 14vw, 200px); height: 6px; margin-top: 4px; background: #333; border: 1px solid #777; }
+#health em { display: block; height: 100%; background: #eee; width: 100%; transition: width .15s; }
+#health.low b { color: var(--red); }
+#health.low em { background: var(--red); }
+#ammo { position: absolute; right: 3%; bottom: 4%; font-size: clamp(14px, 2.2vw, 30px); letter-spacing: .15em; }
+
+/* ---- screens ---- */
+.screen {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,.92));
+  cursor: pointer;
+}
+.screen[hidden] { display: none; }
+.screen h1 { font-size: clamp(40px, 9vw, 120px); line-height: .9; margin: 0 0 .3em; letter-spacing: .08em; text-shadow: 6px 6px 0 var(--red); }
+.screen h2 { font-size: clamp(24px, 5vw, 64px); margin: 0 0 .4em; letter-spacing: .12em; font-weight: normal; }
+.screen p { max-width: 34em; margin: .3em auto; color: #bbb; font-size: clamp(13px, 1.7vw, 20px); line-height: 1.5; }
+.screen .keys { font-family: 'Courier New', monospace; color: #888; font-size: clamp(11px, 1.3vw, 15px); margin-top: 1.2em; }
+.screen .go { margin-top: 1.6em; color: #fff; letter-spacing: .3em; font-size: clamp(12px, 1.5vw, 18px); animation: blink 1.4s infinite; }
+.screen .small { letter-spacing: .4em; color: #777; font-size: clamp(10px, 1.2vw, 14px); }
+.screen .stats { font-family: 'Courier New', monospace; color: #ddd; }
+.screen .red { color: var(--red); }
+@keyframes blink { 50% { opacity: .35; } }
