@@ -8,6 +8,7 @@ import { Renderer } from './render.js';
 import { Player, PLAYER } from './player.js';
 import { Enemy, updateEnemies } from './enemies.js';
 import * as sfx from './audio.js';
+import { Cutscene } from './cutscene.js';
 
 // ---- tuning numbers ----
 const PROPS = {
@@ -45,6 +46,15 @@ class Game {
     this.sprites = [];
     this.hudCache = {};
     this.last = performance.now();
+    this.cutscene = new Cutscene(canvas, () => { this.load(0); this.showCard(); });
+  }
+
+  // The opening scene in the flat. Space, Escape or a click skips it.
+  playCutscene() {
+    this.state = 'cutscene';
+    this.world = null;
+    this.showOverlay(null);
+    this.cutscene.start();
   }
 
   // ---- levels ----
@@ -99,6 +109,10 @@ class Game {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     if (this.state === 'play' && !this.freeze) this.update(dt);
+    if (this.state === 'cutscene') {
+      if (!this.freeze) this.cutscene.update(dt);
+      if (this.state === 'cutscene') this.cutscene.draw();
+    }
     if (this.world) this.draw(this.state === 'play' && !this.freeze ? dt : 0);
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -345,7 +359,7 @@ class Game {
     this.state = last ? 'won' : 'clear';
     sfx.setRain(false);
     if (document.pointerLockElement) document.exitPointerLock();
-    if (last) this.showOverlay(`<h2>THE VIPERS ARE FINISHED</h2><p>The rain washes the streets clean. For tonight.</p>${stats}<p class="go">Click to play again</p>`);
+    if (last) this.showOverlay(`<h2>THE VIPERS ARE FINISHED</h2><p>She's safe. The rain washes the streets clean. For tonight.</p>${stats}<p class="go">Click to play again</p>`);
     else this.showOverlay(`<h2>${this.level.name} — CLEAR</h2>${stats}<p class="go">Click to go on</p>`);
   }
 
@@ -372,7 +386,8 @@ class Game {
   onClick() {
     sfx.unlock();
     switch (this.state) {
-      case 'title': this.load(0); this.showCard(); break;
+      case 'title': this.playCutscene(); break;
+      case 'cutscene': this.cutscene.skip(); break;
       case 'card': this.begin(); break;
       case 'paused': this.begin(); break;
       case 'dead': this.load(this.levelIndex); this.begin(); break;
@@ -432,14 +447,15 @@ window.game = game;
 
 function showTitle() {
   game.showOverlay(`<h1>SIX<br>CHAMBERS</h1>
-    <p>The Vipers run this town. You've got a revolver, and six rounds at a time.</p>
+    <p>The Vipers took your wife. You've got a revolver, and six rounds at a time.</p>
     <p class="keys">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Right-click aim &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Arrow keys turn</p>
     <p class="go">Click to start</p>`);
 }
 
 addEventListener('keydown', (e) => {
   game.keys.add(e.code);
-  if (e.code === 'Space') game.firePressed = game.state === 'play';
+  if (game.state === 'cutscene' && (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter')) game.cutscene.skip();
+  else if (e.code === 'Space') game.firePressed = game.state === 'play';
   if (e.code === 'KeyR') game.reloadPressed = game.state === 'play';
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });

@@ -78,17 +78,51 @@ export function thunder() { burst({ vol: 0.9, dur: 3.2, f0: 380, f1: 40, q: 0.3,
 export function ricochet() { tone({ vol: 0.08, dur: 0.25, f0: 2400, f1: 1200, type: 'triangle' }); }
 
 // Rain: noise through a soft filter, looping quietly in the background.
-export function setRain(on) {
+// Call again with a different volume to make it louder or quieter.
+let rainGain = null;
+export function setRain(on, vol = 0.09) {
   if (!ctx) return;
   if (on && !rain) {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf; src.loop = true;
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.4;
-    const g = ctx.createGain(); g.gain.value = 0.09;
-    src.connect(f).connect(g).connect(master);
+    rainGain = ctx.createGain(); rainGain.gain.value = vol;
+    src.connect(f).connect(rainGain).connect(master);
     src.start();
     rain = src;
+  } else if (on && rain) {
+    rainGain.gain.setTargetAtTime(vol, ctx.currentTime, 0.3);
   } else if (!on && rain) {
     rain.stop(); rain = null;
   }
 }
+
+// ---- cutscene sounds ----
+// An old phone ringing: a fast warble of two tones.
+export function phoneRing() {
+  for (let i = 0; i < 14; i++) {
+    tone({ vol: 0.12, dur: 0.035, f0: i % 2 ? 1400 : 1100, f1: i % 2 ? 1400 : 1100, type: 'square', delay: i * 0.045 });
+  }
+}
+export function phoneFlip() { burst({ vol: 0.4, dur: 0.035, f0: 5000, f1: 2500, type: 'bandpass', q: 3 }); }
+// A muffled voice down the phone line: bursts of filtered noise, like words.
+export function phoneVoice(seconds) {
+  if (!ctx) return;
+  let t = 0;
+  while (t < seconds) {
+    const word = 0.08 + Math.random() * 0.18;
+    burst({ vol: 0.12 + Math.random() * 0.08, dur: word, f0: 700 + Math.random() * 500, f1: 400, type: 'bandpass', q: 6, delay: t });
+    t += word + (Math.random() < 0.2 ? 0.25 : 0.04);
+  }
+}
+export function step() { burst({ vol: 0.25, dur: 0.07, f0: 300, f1: 80 }); }
+export function creak() { tone({ vol: 0.12, dur: 0.5, f0: 180, f1: 120, type: 'sawtooth' }); burst({ vol: 0.15, dur: 0.4, f0: 900, f1: 500, type: 'bandpass', q: 8 }); }
+export function crack() { burst({ vol: 0.8, dur: 0.15, f0: 3000, f1: 400 }); tone({ vol: 0.4, dur: 0.12, f0: 220, f1: 80 }); }
+export function crash() { burst({ vol: 0.7, dur: 0.5, f0: 1500, f1: 100 }); tone({ vol: 0.5, dur: 0.3, f0: 110, f1: 45 }); }
+export function clang() {
+  tone({ vol: 0.25, dur: 0.6, f0: 820, f1: 800, type: 'triangle' });
+  tone({ vol: 0.18, dur: 0.5, f0: 1290, f1: 1270, type: 'triangle' });
+  burst({ vol: 0.3, dur: 0.05, f0: 6000, f1: 3000, type: 'highpass' });
+}
+export function spin() { for (let i = 0; i < 9; i++) burst({ vol: 0.25, dur: 0.02, f0: 6000, f1: 4000, type: 'highpass', delay: i * 0.05 * (1 + i * 0.12) }); }
+export function doorCreak() { tone({ vol: 0.1, dur: 1.0, f0: 260, f1: 150, type: 'sawtooth' }); burst({ vol: 0.12, dur: 0.9, f0: 1200, f1: 700, type: 'bandpass', q: 10 }); }

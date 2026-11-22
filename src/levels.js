@@ -31,7 +31,7 @@ export const ENEMY_KINDS = ['thug', 'heavy', 'boss'];
 export const LEVELS = [
   {
     name: 'MAIN STREET',
-    intro: "Midnight, and raining again. The Vipers think they own this street. Remind them they don't.",
+    intro: "The Vipers own this street. Somebody out here knows where they're keeping your wife.",
     outdoor: true, rain: true, lightning: true,
     ambient: 0.30, fog: 17,
     floors: { '.': 'asphalt', ',': 'sidewalk' },
@@ -79,7 +79,7 @@ export const LEVELS = [
   },
   {
     name: 'THE HIDEOUT',
-    intro: 'Their warehouse down by the docks. The boss is in the back room. End it.',
+    intro: 'Their warehouse down by the docks. The boss is in the back room, and so is she. End it.',
     outdoor: false, rain: false, lightning: false,
     ambient: 0.27, fog: 15,
     floors: { '.': 'woodfloor', ',': 'concretefloor' },

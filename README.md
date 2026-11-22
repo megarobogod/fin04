@@ -3,6 +3,10 @@
 A black-and-white, old-school 2D-style FPS (a raycaster, like the early-90s
 shooters). The only colour is red, and red is blood.
 
+It opens with a cutscene: you're a retired hitman in a run-down flat, and the Vipers
+call to say they've got your wife. You dig your old revolver out of a stash behind
+the wall panelling and walk out into the rain. (Space skips it.)
+
 You have a revolver: six rounds, reloaded one at a time. Clear the Vipers gang
 out of three levels: **Main Street**, **The Back Alleys** and **The Hideout**,
 where the boss is waiting.
@@ -32,4 +36,5 @@ straight from a file, so it needs this tiny server.)
 - `src/textures.js`: every picture, drawn in code.
 - `src/world.js`: walls, light, line of sight, blood on walls and floors.
 - `src/audio.js`: every sound, made in code.
+- `src/cutscene.js`: the opening scene. The words are in `LINES`, the sounds in `EVENTS`.
 - `src/main.js`: ties it all together.

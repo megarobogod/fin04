@@ -44,3 +44,12 @@ body { display: grid; place-items: center; font-family: Georgia, 'Times New Roma
 .screen .stats { font-family: 'Courier New', monospace; color: #ddd; }
 .screen .red { color: var(--red); }
 @keyframes blink { 50% { opacity: .35; } }
+
+/* ---- cutscene subtitles ---- */
+#subs { position: absolute; left: 8%; right: 8%; bottom: 1.2%; text-align: center; pointer-events: none;
+  font-family: Georgia, serif; font-size: clamp(12px, 1.9vw, 24px); line-height: 1.3; color: #eee; text-shadow: 0 0 6px #000; }
+#subs[hidden], #skip[hidden] { display: none; }
+#subs b { display: block; font-family: 'Courier New', monospace; font-size: .55em; letter-spacing: .3em; color: #888; margin-bottom: .2em; }
+#subs.voice span { color: #aaa; font-style: italic; }
+#subs.caption span { font-family: 'Courier New', monospace; letter-spacing: .25em; text-transform: uppercase; font-size: .75em; color: #bbb; }
+#skip { position: absolute; right: 2%; top: 1.6%; font-family: 'Courier New', monospace; font-size: clamp(9px, 1vw, 12px); letter-spacing: .3em; color: #555; pointer-events: none; }
