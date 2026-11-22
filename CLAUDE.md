@@ -11,7 +11,7 @@ A raycaster FPS for a parent and their son to build together and learn from.
 - `index.html#test` starts level 1 straight away without pointer lock (`?level=2#test` for another level, 0-based). The console then has `window.game` (player, enemies, world, props, pickups, particles), `game.run(seconds)` to simulate forward, and `game.freeze = true` to hold the picture still. The preview pane may be hidden, so animation frames don't tick: use `game.run` / `game.draw(0)`.
 - When testing in the preview browser, load a NEW url each time (`?v=2#test`, `?v=3#test`...): changing only the hash doesn't reload.
 - `node --check` on a copy named `.mjs` is a quick syntax check without a browser.
-- GitHub: `megarobogod/fin04`. Commits are made as `megarobogod` with the GitHub no-reply email.
+- GitHub: `megarobogod/fin04`, connected to the Vercel project `fin04`: every push to `main` goes live at https://fin04.vercel.app (the public link; the `-megarobogod` links ask for a Vercel login). Commits are made as `megarobogod` with the GitHub no-reply email.
 
 ## Game design (from the son's prompt)
 - 2D-style (raycaster) black and white FPS; red blood is the only colour.

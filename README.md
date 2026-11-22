@@ -13,6 +13,8 @@ where the boss is waiting.
 - **Shift**: run (faster, but your aim wobbles more).
 - **Arrow keys** / **Q E**: turn without the mouse.
 
+Play it online: https://fin04.vercel.app
+
 ## Running it locally
 ```
 node serve.mjs
