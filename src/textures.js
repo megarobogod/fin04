@@ -527,7 +527,52 @@ function buildGun() {
     pts.push(48 + Math.cos(a) * r, 48 + Math.sin(a) * r);
   }
   poly(fg, pts);
-  return { img: c, flash: f, w: 200, h: 150, tipX: 26, tipY: 37, pivotX: 150, pivotY: 110 };
+  return { img: c, flash: f, sights: buildSights(), w: 200, h: 150, tipX: 26, tipY: 37, pivotX: 150, pivotY: 110 };
+}
+
+// The revolver held up in both hands, seen from right behind it: you look
+// through the notch in the back and line the front sight up with your target.
+// The tip of the front sight is at (100, 6): that point goes in the middle of the screen.
+function buildSights() {
+  const c = newCanvas(200, 140), g = c.getContext('2d');
+  // coat sleeves coming in from the bottom corners
+  g.fillStyle = css(28);
+  poly(g, [0, 140, 0, 112, 46, 118, 70, 140]);
+  poly(g, [200, 140, 200, 112, 154, 118, 130, 140]);
+  g.fillStyle = css(220);                                        // shirt cuffs
+  poly(g, [40, 140, 50, 116, 66, 120, 62, 140]);
+  poly(g, [160, 140, 150, 116, 134, 120, 138, 140]);
+  // barrel rib running away from you to the front sight
+  // (kept slim so you can still see who you're aiming at)
+  g.fillStyle = css(88); poly(g, [94, 72, 106, 72, 101.8, 14, 98.2, 14]);
+  g.fillStyle = css(150); poly(g, [99.2, 72, 100.8, 72, 100.3, 14, 99.7, 14]); // shine along the top
+  g.fillStyle = css(58); poly(g, [94, 72, 96, 72, 98.6, 14, 98.2, 14]);
+  // front sight blade
+  g.fillStyle = css(24); g.fillRect(98.8, 6, 2.4, 9);
+  g.fillStyle = css(200); g.fillRect(99.4, 6, 1.2, 1.2);        // a tiny bright dot on top
+  // cylinder bulging out each side
+  g.fillStyle = css(112); ellipse(g, 100, 94, 34, 13);
+  g.fillStyle = css(76);
+  for (let i = -2; i <= 2; i++) g.fillRect(100 + i * 12 - 1, 84, 2.5, 20);
+  g.fillStyle = css(160); ellipse(g, 100, 86, 28, 3);
+  // back of the frame with the rear sight notch
+  g.fillStyle = css(72); poly(g, [84, 70, 116, 70, 120, 86, 80, 86]);
+  g.fillStyle = css(130); g.fillRect(84, 70, 32, 2);
+  g.fillStyle = css(10); poly(g, [96, 70, 104, 70, 102.5, 78, 97.5, 78]); // the notch
+  // hammer
+  g.fillStyle = css(42); poly(g, [92, 84, 108, 84, 106, 96, 94, 96]);
+  g.fillStyle = css(80); g.fillRect(94, 86, 12, 1.5); g.fillRect(94, 89, 12, 1.5);
+  // grip and two hands wrapped round it
+  g.fillStyle = css(50); poly(g, [80, 100, 120, 100, 124, 140, 76, 140]);
+  g.fillStyle = css(170);
+  poly(g, [52, 104, 84, 98, 92, 112, 86, 140, 56, 140, 46, 120]);   // left hand
+  poly(g, [148, 104, 116, 98, 108, 112, 114, 140, 144, 140, 154, 120]); // right hand
+  g.fillStyle = css(185);
+  poly(g, [70, 98, 98, 102, 96, 110, 68, 108]);                 // thumbs crossed over the back
+  poly(g, [130, 98, 102, 104, 104, 111, 132, 107]);
+  g.fillStyle = css(140);
+  for (let i = 0; i < 3; i++) { g.fillRect(56, 116 + i * 7, 26, 1.5); g.fillRect(118, 116 + i * 7, 26, 1.5); }
+  return c;
 }
 
 // ---- splats and holes (painted onto wall and floor textures) --------------

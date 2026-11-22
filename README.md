@@ -8,7 +8,8 @@ out of three levels: **Main Street**, **The Back Alleys** and **The Hideout**,
 where the boss is waiting.
 
 ## Controls
-- **WASD**: move. **Mouse**: aim, including looking up and down. **Click** or **Space**: shoot.
+- **WASD**: move. **Mouse**: look around, including up and down. **Click** or **Space**: shoot.
+- **Hold right-click**: aim down the revolver's sights. It zooms in and your shots go dead straight, but you walk slower and can't run.
   Aim for the head: headshots do over twice the damage.
 - **R**: reload (one round at a time; shoot to stop early).
 - **Shift**: run (faster, but your aim wobbles more).

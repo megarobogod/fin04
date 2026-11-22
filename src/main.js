@@ -37,6 +37,7 @@ class Game {
     this.keys = new Set();
     this.mouseDX = 0;
     this.mouseDY = 0;
+    this.adsHeld = false;          // right mouse button held: aim down the sights
     this.firePressed = false;
     this.reloadPressed = false;
     this.freeze = false;
@@ -432,7 +433,7 @@ window.game = game;
 function showTitle() {
   game.showOverlay(`<h1>SIX<br>CHAMBERS</h1>
     <p>The Vipers run this town. You've got a revolver, and six rounds at a time.</p>
-    <p class="keys">WASD move &nbsp;·&nbsp; Mouse aim (up and down too) &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Arrow keys turn</p>
+    <p class="keys">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Right-click aim &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Arrow keys turn</p>
     <p class="go">Click to start</p>`);
 }
 
@@ -443,11 +444,14 @@ addEventListener('keydown', (e) => {
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', (e) => game.keys.delete(e.code));
-addEventListener('blur', () => game.keys.clear());
+addEventListener('mouseup', (e) => { if (e.button === 2) game.adsHeld = false; });
+addEventListener('contextmenu', (e) => e.preventDefault());   // right-click aims, no menu
+addEventListener('blur', () => { game.keys.clear(); game.adsHeld = false; });
 addEventListener('mousemove', (e) => {
   if (document.pointerLockElement === canvas && game.state === 'play') { game.mouseDX += e.movementX; game.mouseDY += e.movementY; }
 });
 addEventListener('mousedown', (e) => {
+  if (e.button === 2) { game.adsHeld = true; return; }
   if (e.button !== 0) return;
   if (game.state === 'play' && (TEST || document.pointerLockElement === canvas)) game.firePressed = true;
 });

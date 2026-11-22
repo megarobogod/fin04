@@ -69,9 +69,13 @@ export class Renderer {
     const fog = level.fog;
     // Looking up and down slides the whole picture up or down ("y-shearing"):
     // the horizon moves, everything else follows it.
-    const horizon = Math.round(H / 2 + H * Math.tan(cam.pitch) + cam.bobY);
+    // Aiming down the sights zooms in: everything is drawn `zoom` times bigger
+    // (F, the "focal length") and the view gets narrower to match.
+    const zoom = cam.zoom || 1;
+    const F = H * zoom;
+    const horizon = Math.round(H / 2 + F * Math.tan(cam.pitch) + cam.bobY);
     const dirX = Math.cos(cam.angle), dirY = Math.sin(cam.angle);
-    const P = this.plane, plX = -dirY * P, plY = dirX * P;
+    const P = this.plane / zoom, plX = -dirY * P, plY = dirX * P;
     const wmap = world.w, hmap = world.h;
 
     // ---- sky (outdoors) ----
@@ -92,7 +96,7 @@ export class Renderer {
 
     // ---- floor and ceiling, one row at a time ----
     const rx0 = dirX - plX, ry0 = dirY - plY, rx1 = dirX + plX, ry1 = dirY + plY;
-    const posZ = 0.5 * H;
+    const posZ = 0.5 * F;
     const floorTex = world.floorTex, ceilTex = world.ceilTex;
     // Rows below the horizon are floor. Rows above it are ceiling indoors
     // (outdoors they're sky, already drawn).
@@ -142,7 +146,7 @@ export class Renderer {
       // light just in front of the wall face
       const hx = cam.x + rdx * (dist - 0.03), hy = cam.y + rdy * (dist - 0.03);
       const s = (world.lightAt(hx, hy) * fogAt(dist, fog) * (side ? 200 : 256)) | 0;
-      const lineH = H / dist;
+      const lineH = F / dist;
       const top = horizon - lineH / 2;
       const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H, Math.ceil(horizon + lineH / 2));
       const step = T / lineH;
@@ -167,7 +171,7 @@ export class Renderer {
       if (fogv <= 0) continue;
       const tex = s.tex;
       const screenX = (W / 2) * (1 + tX / depth);
-      const scale = H / depth;
+      const scale = F / depth;
       const sh = s.h * scale, sw = (sh * tex.w) / tex.h;
       const bottom = horizon + scale * (0.5 - (s.z || 0));
       const top = bottom - sh, left = screenX - sw / 2;
@@ -216,8 +220,11 @@ export class Renderer {
     this.ctx.putImageData(this.img, 0, 0);
 
     if (game.state !== 'dead') {
-      this.drawGun(game);
-      this.drawCrosshair();
+      // Raising the gun: first the hip gun drops away, then the sights come up.
+      const ads = game.player.ads || 0;
+      if (ads < 0.5) this.drawGun(game, Math.min(1, ads * 2));
+      else this.drawSights(game, ads * 2 - 1);
+      if (ads < 0.3) this.drawCrosshair();
     }
   }
 
@@ -243,13 +250,14 @@ export class Renderer {
     }
   }
 
-  drawGun(game) {
+  // The revolver held at the hip. `lower` (0..1) drops it out of view.
+  drawGun(game, lower = 0) {
     const p = game.player, gun = this.art.gun, ctx = this.ctx;
     const { W, H } = this;
     const bx = Math.sin(p.bobPhase) * 5 * p.bobAmt;
     const by = Math.abs(Math.cos(p.bobPhase)) * 5 * p.bobAmt;
     const x = W / 2 - 28 + bx + p.recoil * 6 + p.reloadPose * 30;
-    const y = H - gun.h + 26 + by + p.recoil * 8 + p.reloadPose * 75;
+    const y = H - gun.h + 26 + by + p.recoil * 8 + p.reloadPose * 75 + lower * 130;
     ctx.save();
     ctx.translate(x + gun.pivotX, y + gun.pivotY);
     ctx.rotate(p.recoil * 0.32 - p.reloadPose * 0.5);
@@ -259,6 +267,29 @@ export class Renderer {
       const f = gun.flash, k = 0.8 + Math.random() * 0.5;
       ctx.drawImage(f, gun.tipX - gun.pivotX - (f.width * k) / 2 - 4, gun.tipY - gun.pivotY - (f.height * k) / 2 - 2, f.width * k, f.height * k);
     }
+    ctx.restore();
+  }
+
+  // Looking down the sights. `raise` (0..1) brings the gun up from below.
+  // When fully up, the tip of the front sight sits exactly on the middle of
+  // the screen, which is where the bullet goes.
+  drawSights(game, raise) {
+    const p = game.player, gun = this.art.gun, ctx = this.ctx;
+    const s = gun.sights;
+    const sway = Math.sin(p.bobPhase) * 2 * p.bobAmt;
+    const x = this.W / 2 - 100 + sway;
+    const y = this.H / 2 - 6 + (1 - raise) * 140 + p.recoil * 16 + Math.abs(Math.cos(p.bobPhase)) * 2 * p.bobAmt;
+    if (p.flashT > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const f = gun.flash, k = 0.9 + Math.random() * 0.5;
+      ctx.drawImage(f, x + 100 - (f.width * k) / 2, y + 2 - (f.height * k) / 2, f.width * k, f.height * k);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(x + 100, y + 120);
+    ctx.rotate(p.recoil * -0.06);
+    ctx.drawImage(s, -100, -120);
     ctx.restore();
   }
 

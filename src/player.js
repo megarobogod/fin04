@@ -24,12 +24,20 @@ export const PLAYER = {
   spread: 0.012,        // aim wobble standing still (radians)
   moveSpread: 0.025,    // extra wobble while walking
   runSpread: 0.05,      // extra wobble while running
+  // aiming down the sights (hold right mouse button)
+  adsZoom: 1.6,         // how much it zooms in
+  adsSpeed: 0.5,        // you walk at half speed while aiming (and can't run)
+  adsSpread: 0.25,      // wobble is cut to a quarter
+  adsMouse: 0.6,        // mouse turns slower so you can line up small targets
+  adsTime: 0.12,        // seconds to raise the gun (roughly)
 };
 
 export class Player {
   constructor(x, y, angle) {
     this.x = x; this.y = y; this.angle = angle;
     this.pitch = 0;              // looking up (+) or down (-)
+    this.ads = 0;                // 0 = gun at the hip, 1 = looking down the sights
+    this.zoom = 1;
     this.hp = PLAYER.maxHp;
     this.loaded = PLAYER.cylinder;
     this.reserve = PLAYER.startReserve;
@@ -46,13 +54,19 @@ export class Player {
 
   update(dt, game) {
     const k = game.keys;
+    // aiming down the sights: eases up while the right button is held (not while reloading)
+    const wantAds = game.adsHeld && !this.reloading ? 1 : 0;
+    this.ads += (wantAds - this.ads) * Math.min(1, dt / PLAYER.adsTime);
+    if (Math.abs(wantAds - this.ads) < 0.01) this.ads = wantAds;
+    this.zoom = 1 + (PLAYER.adsZoom - 1) * this.ads;
+    const sens = 1 - (1 - PLAYER.adsMouse) * this.ads;
     // turning
     let turn = 0;
     if (k.has('ArrowLeft') || k.has('KeyQ')) turn -= 1;
     if (k.has('ArrowRight') || k.has('KeyE')) turn += 1;
-    this.angle += turn * PLAYER.turnKeys * dt + game.mouseDX * PLAYER.mouse;
+    this.angle += (turn * PLAYER.turnKeys * dt + game.mouseDX * PLAYER.mouse) * sens;
     game.mouseDX = 0;
-    this.pitch -= game.mouseDY * PLAYER.mouseY;   // mouse up = look up
+    this.pitch -= game.mouseDY * PLAYER.mouseY * sens;   // mouse up = look up
     game.mouseDY = 0;
     this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch));
     this.angle = ((this.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -65,9 +79,9 @@ export class Player {
     if (k.has('KeyA')) s -= 1;
     const len = Math.hypot(f, s);
     this.moving = len > 0;
-    this.running = this.moving && (k.has('ShiftLeft') || k.has('ShiftRight'));
+    this.running = this.moving && this.ads < 0.5 && (k.has('ShiftLeft') || k.has('ShiftRight'));
     if (this.moving) {
-      const speed = (this.running ? PLAYER.run : PLAYER.walk) * dt / len;
+      const speed = (this.running ? PLAYER.run : PLAYER.walk) * (1 - (1 - PLAYER.adsSpeed) * this.ads) * dt / len;
       const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
       const dx = (ca * f - sa * s) * speed, dy = (sa * f + ca * s) * speed;
       game.world.move(this, dx, dy, PLAYER.radius);
@@ -75,7 +89,7 @@ export class Player {
       this.bobPhase += dt * (this.running ? 13 : 9);
     }
     // head bob eases in and out
-    const want = this.moving ? (this.running ? 1 : 0.6) : 0;
+    const want = (this.moving ? (this.running ? 1 : 0.6) : 0) * (1 - 0.7 * this.ads);
     this.bobAmt += (want - this.bobAmt) * Math.min(1, dt * 8);
     this.bobY = Math.abs(Math.sin(this.bobPhase)) * 3 * this.bobAmt;
 
@@ -109,6 +123,7 @@ export class Player {
     sfx.revolver();
     let spread = PLAYER.spread;
     if (this.moving) spread += this.running ? PLAYER.runSpread : PLAYER.moveSpread;
+    spread *= 1 - (1 - PLAYER.adsSpread) * this.ads;
     const a = this.angle + (Math.random() - 0.5) * 2 * spread;
     // slope: how much the bullet rises (or drops) per square it travels
     const slope = Math.tan(this.pitch + (Math.random() - 0.5) * 2 * spread);
