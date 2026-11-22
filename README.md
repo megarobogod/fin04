@@ -8,7 +8,8 @@ out of three levels: **Main Street**, **The Back Alleys** and **The Hideout**,
 where the boss is waiting.
 
 ## Controls
-- **WASD**: move. **Mouse**: aim. **Click** or **Space**: shoot.
+- **WASD**: move. **Mouse**: aim, including looking up and down. **Click** or **Space**: shoot.
+  Aim for the head: headshots do over twice the damage.
 - **R**: reload (one round at a time; shoot to stop early).
 - **Shift**: run (faster, but your aim wobbles more).
 - **Arrow keys** / **Q E**: turn without the mouse.

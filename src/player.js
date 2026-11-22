@@ -8,6 +8,8 @@ export const PLAYER = {
   run: 4.6,             // holding Shift
   turnKeys: 2.6,        // radians per second with the arrow keys
   mouse: 0.0024,        // radians per pixel of mouse movement
+  mouseY: 0.0020,       // same, for looking up and down
+  maxPitch: 0.6,        // how far you can look up or down (radians, about 34 degrees)
   radius: 0.24,         // how fat you are (for bumping into walls)
   maxHp: 100,
   cylinder: 6,          // rounds in the revolver
@@ -16,9 +18,9 @@ export const PLAYER = {
   fireDelay: 0.42,      // seconds between shots
   openTime: 0.4,        // swing the cylinder out
   roundTime: 0.34,      // push one round in
-  damage: [55, 78],     // a thug has 70 health: one or two shots
-  cleanHit: 1.6,        // dead-centre hits do this much extra
-  cleanWidth: 0.07,     // how close to the middle counts as dead centre
+  damage: [55, 78],     // a thug has 70 health: one or two shots to the body
+  headshot: 2.6,        // shots to the head do this many times more
+  headLine: 0.72,       // the head starts this far up a gang member (0 = feet, 1 = top of hat)
   spread: 0.012,        // aim wobble standing still (radians)
   moveSpread: 0.025,    // extra wobble while walking
   runSpread: 0.05,      // extra wobble while running
@@ -27,6 +29,7 @@ export const PLAYER = {
 export class Player {
   constructor(x, y, angle) {
     this.x = x; this.y = y; this.angle = angle;
+    this.pitch = 0;              // looking up (+) or down (-)
     this.hp = PLAYER.maxHp;
     this.loaded = PLAYER.cylinder;
     this.reserve = PLAYER.startReserve;
@@ -49,6 +52,9 @@ export class Player {
     if (k.has('ArrowRight') || k.has('KeyE')) turn += 1;
     this.angle += turn * PLAYER.turnKeys * dt + game.mouseDX * PLAYER.mouse;
     game.mouseDX = 0;
+    this.pitch -= game.mouseDY * PLAYER.mouseY;   // mouse up = look up
+    game.mouseDY = 0;
+    this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch));
     this.angle = ((this.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
 
     // walking
@@ -104,7 +110,9 @@ export class Player {
     let spread = PLAYER.spread;
     if (this.moving) spread += this.running ? PLAYER.runSpread : PLAYER.moveSpread;
     const a = this.angle + (Math.random() - 0.5) * 2 * spread;
-    game.playerShot(Math.cos(a), Math.sin(a));
+    // slope: how much the bullet rises (or drops) per square it travels
+    const slope = Math.tan(this.pitch + (Math.random() - 0.5) * 2 * spread);
+    game.playerShot(Math.cos(a), Math.sin(a), slope);
   }
 
   startReload() {

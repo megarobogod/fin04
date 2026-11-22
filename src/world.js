@@ -179,6 +179,13 @@ export class World {
     bulletHole(this.ownWall(hit.cell), hit.u * T, (1 - height) * T);
   }
 
+  // A bullet hole in the floor at map position (x, y).
+  holeFloor(x, y) {
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (this.solidCell(cx, cy)) return;
+    bulletHole(this.ownFloor(cy * this.w + cx), (x - cx) * T, (y - cy) * T);
+  }
+
   // A blob of blood on the floor around (x, y), radius r squares.
   // `wobble` makes the edge lumpy; set `dark` for old blood.
   splatFloor(x, y, r, dark = 0) {

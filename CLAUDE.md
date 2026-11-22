@@ -22,6 +22,7 @@ A raycaster FPS for a parent and their son to build together and learn from.
 - **Renderer** (`render.js`): 480x270 buffer, one ray per column (DDA), textured floors/ceilings cast row by row, billboard sprites with a z-buffer, then rain, film grain, vignette and the red hurt edge. Pixels with alpha 254 "glow" (ignore light and fog).
 - **Light** (`world.js` `buildLight`): baked at 4x4 per square from lamps, bulbs and lit windows, blocked by walls. `world.flash` adds light everywhere (muzzle flash, lightning).
 - **Blood**: hits spray particles that leave drops on the floor, splatter the wall behind the target (`splatWall`), and corpses grow a pool (`splatFloor`). Each square gets its own copy of its texture the first time it's painted.
-- **Revolver** (`player.js`): 6 rounds, reloaded one at a time; firing cancels a reload. Hitscan; dead-centre hits do extra damage.
+- **Revolver** (`player.js`): 6 rounds, reloaded one at a time; firing cancels a reload. Hitscan with height: the bullet starts at eye height 0.5 and rises by `tan(pitch)` per square, so it can hit legs, body or head (`headLine`), go over a hat, or hit the floor/ceiling first.
+- **Looking up/down**: y-shearing. `player.pitch` moves the horizon by `H * tan(pitch)`; floors, ceilings, walls and sprites all hang off the horizon.
 - **Gang AI** (`enemies.js`): idle → hunt → aim → fire. They see in a cone while idle, wake each other and wake to gunshots, side-step between shots, and follow a BFS path map (`updateFlow` in `main.js`) when they can't see you. The `aim` pause is the player's window to shoot first.
 - **Levels** (`levels.js`): text maps; the key is at the top of the file. Kill every gang member to clear a level.

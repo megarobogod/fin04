@@ -67,7 +67,9 @@ export class Renderer {
     const { world, player: cam, level } = game;
     const { W, H, buf, zbuf } = this;
     const fog = level.fog;
-    const horizon = (H / 2 + cam.bobY) | 0;
+    // Looking up and down slides the whole picture up or down ("y-shearing"):
+    // the horizon moves, everything else follows it.
+    const horizon = Math.round(H / 2 + H * Math.tan(cam.pitch) + cam.bobY);
     const dirX = Math.cos(cam.angle), dirY = Math.sin(cam.angle);
     const P = this.plane, plX = -dirY * P, plY = dirX * P;
     const wmap = world.w, hmap = world.h;
@@ -92,32 +94,27 @@ export class Renderer {
     const rx0 = dirX - plX, ry0 = dirY - plY, rx1 = dirX + plX, ry1 = dirY + plY;
     const posZ = 0.5 * H;
     const floorTex = world.floorTex, ceilTex = world.ceilTex;
-    for (let y = horizon + 1; y < H; y++) {
-      const p = y - horizon;
-      const rowDist = posZ / p;
-      const fogv = fogAt(rowDist, fog) * 256;
+    // Rows below the horizon are floor. Rows above it are ceiling indoors
+    // (outdoors they're sky, already drawn).
+    const firstRow = ceilTex ? 0 : Math.max(0, horizon + 1);
+    for (let y = firstRow; y < H; y++) {
+      const row = y * W;
+      if (y === horizon) { buf.fill(0xFF000000, row, row + W); continue; }
+      const isFloor = y > horizon;
+      const tex = isFloor ? floorTex : ceilTex;
+      const rowDist = posZ / Math.abs(y - horizon);
+      const fogv = fogAt(rowDist, fog) * (isFloor ? 256 : 205);
+      if (fogv <= 0) { buf.fill(0xFF000000, row, row + W); continue; }
       const stepX = (rowDist * (rx1 - rx0)) / W, stepY = (rowDist * (ry1 - ry0)) / W;
       let fx = cam.x + rowDist * rx0, fy = cam.y + rowDist * ry0;
-      const yc = horizon - p;                         // the matching ceiling row
-      const row = y * W, crow = yc * W;
-      const doCeil = ceilTex && yc >= 0;
       for (let x = 0; x < W; x++, fx += stepX, fy += stepY) {
         const cx = Math.floor(fx), cy = Math.floor(fy);
-        if (cx < 0 || cy < 0 || cx >= wmap || cy >= hmap || fogv <= 0) {
-          buf[row + x] = 0xFF000000;
-          if (doCeil) buf[crow + x] = 0xFF000000;
-          continue;
-        }
-        const ci = cy * wmap + cx;
-        const ft = floorTex[ci];
-        if (!ft) { buf[row + x] = 0xFF000000; if (doCeil) buf[crow + x] = 0xFF000000; continue; }
+        const t = cx < 0 || cy < 0 || cx >= wmap || cy >= hmap ? null : tex[cy * wmap + cx];
+        if (!t) { buf[row + x] = 0xFF000000; continue; }
         const ti = (((fy - cy) * T) | 0) * T + (((fx - cx) * T) | 0);
-        const s = (world.lightAt(fx, fy) * fogv) | 0;
-        buf[row + x] = shade(ft.data[ti], s);
-        if (doCeil) buf[crow + x] = shade(ceilTex[ci].data[ti], (s * 0.8) | 0);
+        buf[row + x] = shade(t.data[ti], (world.lightAt(fx, fy) * fogv) | 0);
       }
     }
-    if (ceilTex) for (let y = 0; y < horizon - (H - horizon) + 1 && y < H; y++) buf.fill(0xFF000000, y * W, y * W + W);
 
     // ---- walls, one column at a time ----
     for (let x = 0; x < W; x++) {

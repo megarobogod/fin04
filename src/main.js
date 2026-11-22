@@ -36,6 +36,7 @@ class Game {
     this.levelIndex = 0;
     this.keys = new Set();
     this.mouseDX = 0;
+    this.mouseDY = 0;
     this.firePressed = false;
     this.reloadPressed = false;
     this.freeze = false;
@@ -142,17 +143,29 @@ class Game {
   }
 
   // ---- shooting ----
-  playerShot(dx, dy) {
+  // (dx, dy) is the direction across the map; `slope` is how much the bullet
+  // rises per square (0 = level, from your eye height of 0.5).
+  playerShot(dx, dy, slope = 0) {
     const p = this.player, world = this.world;
+    const heightAt = (t) => 0.5 + slope * t;
     const wall = world.castRay(p.x, p.y, dx, dy, 40);
-    let best = null, bestT = wall.dist, bestPerp = 0;
+    // aiming at the floor (or the ceiling indoors) stops the bullet before the wall
+    let end = wall.dist, endsOn = 'wall';
+    if (heightAt(end) < 0) { end = -0.5 / slope; endsOn = 'floor'; }
+    else if (heightAt(end) > 1) { if (this.level.outdoor) endsOn = 'sky'; else { end = 0.5 / slope; endsOn = 'ceiling'; } }
+
+    let best = null, bestT = end, head = false;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const rx = e.x - p.x, ry = e.y - p.y;
       const t = rx * dx + ry * dy;
       if (t <= 0 || t >= bestT) continue;
       const perp = Math.abs(rx * dy - ry * dx);
-      if (perp < e.def.radius) { best = e; bestT = t; bestPerp = perp; }
+      const z = heightAt(t) / e.def.height;   // 0 = his feet, 1 = top of his hat
+      if (perp < e.def.radius && z > 0.02 && z < 0.95) {
+        best = e; bestT = t;
+        head = z > PLAYER.headLine && perp < e.def.radius * 0.5;
+      }
     }
     // the bang wakes up the neighbourhood
     for (const e of this.enemies) {
@@ -162,32 +175,37 @@ class Game {
     }
     if (best) {
       let dmg = PLAYER.damage[0] + Math.random() * (PLAYER.damage[1] - PLAYER.damage[0]);
-      if (bestPerp < PLAYER.cleanWidth) dmg *= PLAYER.cleanHit;
+      if (head) dmg *= PLAYER.headshot;
       if (bestT > 9) dmg *= 0.8;
       p.hits++;
       const killing = best.hp - dmg <= 0;
-      this.bleed(best, dx, dy, killing ? 26 : 14);
-      // blood sprays onto the wall behind him
+      const hitZ = heightAt(bestT);
+      this.bleed(best, dx, dy, killing ? 26 : 14, hitZ);
+      if (head) this.message('HEADSHOT', 0.8);
+      // blood sprays onto the wall behind him, at the height the bullet was travelling
       const behind = world.castRay(best.x, best.y, dx, dy, 2.6);
-      if (behind.cell >= 0 && behind.dist < 2.6) {
-        world.splatWall(behind, 0.42 + Math.random() * 0.2, (killing ? 9 : 6) * (1.2 - behind.dist / 2.6));
+      const splatZ = heightAt(bestT + behind.dist);
+      if (behind.cell >= 0 && behind.dist < 2.6 && splatZ > 0 && splatZ < 1) {
+        world.splatWall(behind, splatZ, (killing ? 9 : 6) * (1.2 - behind.dist / 2.6));
       }
       sfx.hit();
       if (!killing) sfx.grunt();
       best.hurt(this, dmg);
-    } else if (wall.cell >= 0) {
-      world.holeWall(wall, 0.5 + (Math.random() - 0.5) * 0.15);
-      const hx = p.x + dx * (wall.dist - 0.04), hy = p.y + dy * (wall.dist - 0.04);
-      for (let i = 0; i < 6; i++) this.particles.push({ kind: 'dust', x: hx, y: hy, z: 0.5, vx: -dx * Math.random() * 1.2 + (Math.random() - 0.5), vy: -dy * Math.random() * 1.2 + (Math.random() - 0.5), vz: Math.random() * 1.2, life: 0.4 + Math.random() * 0.3 });
+    } else if (endsOn !== 'sky') {
+      const hx = p.x + dx * (end - 0.04), hy = p.y + dy * (end - 0.04);
+      if (endsOn === 'wall' && wall.cell >= 0) world.holeWall(wall, heightAt(end));
+      if (endsOn === 'floor') world.holeFloor(hx, hy);
+      const z = Math.max(0.02, Math.min(0.98, heightAt(end)));
+      for (let i = 0; i < 6; i++) this.particles.push({ kind: 'dust', x: hx, y: hy, z, vx: -dx * Math.random() * 1.2 + (Math.random() - 0.5), vy: -dy * Math.random() * 1.2 + (Math.random() - 0.5), vz: Math.random() * 1.2, life: 0.4 + Math.random() * 0.3 });
       if (Math.random() < 0.3) sfx.ricochet();
     }
   }
 
-  bleed(e, dx, dy, n) {
+  bleed(e, dx, dy, n, z = 0.55) {
     for (let i = 0; i < n; i++) {
       const sp = 0.8 + Math.random() * 2.6;
       this.particles.push({
-        kind: 'blood', x: e.x, y: e.y, z: 0.45 + Math.random() * 0.2,
+        kind: 'blood', x: e.x, y: e.y, z: z - 0.1 + Math.random() * 0.2,
         vx: dx * sp + (Math.random() - 0.5) * 1.6, vy: dy * sp + (Math.random() - 0.5) * 1.6,
         vz: Math.random() * 1.8, life: 3,
       });
@@ -414,7 +432,7 @@ window.game = game;
 function showTitle() {
   game.showOverlay(`<h1>SIX<br>CHAMBERS</h1>
     <p>The Vipers run this town. You've got a revolver, and six rounds at a time.</p>
-    <p class="keys">WASD move &nbsp;·&nbsp; Mouse aim &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Arrow keys turn</p>
+    <p class="keys">WASD move &nbsp;·&nbsp; Mouse aim (up and down too) &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; Arrow keys turn</p>
     <p class="go">Click to start</p>`);
 }
 
@@ -427,7 +445,7 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => game.keys.delete(e.code));
 addEventListener('blur', () => game.keys.clear());
 addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === canvas && game.state === 'play') game.mouseDX += e.movementX;
+  if (document.pointerLockElement === canvas && game.state === 'play') { game.mouseDX += e.movementX; game.mouseDY += e.movementY; }
 });
 addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
