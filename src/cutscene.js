@@ -1,10 +1,11 @@
-// cutscene.js - the opening scene, seen from the side like a film:
-// your run-down flat, the phone call, the crowbar, the hidden stash, and out
-// the door into the rain.
+// cutscene.js - the opening scene, told as a series of still shots, like
+// panels in a graphic novel: your run-down flat, the phone call, the crowbar,
+// the hidden stash, and out of the door into the rain.
 //
-// Everything is drawn with the canvas 2D commands onto the same 480 x 270
-// screen the game uses. The scene is a timeline: `stateAt(t)` says where
-// everything is at time t (in seconds), and EVENTS plays sounds on cue.
+// The whole flat is drawn in code (the middle of this file), with the man
+// and everything else posed by a timeline: `stateAt(t)` says where
+// everything is at moment t. Each SHOT freezes that timeline at one moment
+// and points a camera at part of the room (a wide shot, or a close-up).
 //
 // The man is drawn as a simple jointed figure. You say where his hips,
 // hands and feet are, and `limb()` works out where the elbows and knees go
@@ -15,43 +16,41 @@ import * as sfx from './audio.js';
 const W = 480, H = 270;
 const BAR = 22;               // black letterbox bars, top and bottom
 const FLOOR = 228;            // where his feet touch the floor
-const END = 52.6;             // the scene lasts this many seconds
+const CUT = 0.07;             // a blink of black between shots
 
 // body sizes in pixels
 const B = { torso: 40, neck: 5, head: 8, upper: 20, fore: 19, thigh: 24, shin: 25 };
 
-// ---- the words ----
-// who: 'you', 'voice' (on the phone) or '' (a caption)
-const LINES = [
-  { t: 0.6, end: 3.6, who: '', text: 'The old neighbourhood. 2 a.m.' },
-  { t: 7.4, end: 8.9, who: 'you', text: 'Yeah.' },
-  { t: 9.0, end: 12.5, who: 'voice', text: "Been a long time. You remember me? 'Course you do." },
-  { t: 12.6, end: 15.7, who: 'voice', text: "I've got your wife. She's right here with me." },
-  { t: 15.8, end: 20.4, who: 'voice', text: "You're doing one last job for the Vipers. Say no, and she pays for it. Slowly." },
-  { t: 20.8, end: 23.1, who: 'you', text: 'Listen to me very carefully.' },
-  { t: 23.2, end: 27.1, who: 'you', text: "I'm going to find you. Then every last one of your Vipers." },
-  { t: 27.2, end: 31.0, who: 'you', text: "And when I'm done, there won't be enough of you left to bury." },
+// ---- the shots ----
+// at:      the moment of the timeline to freeze (seconds)
+// x, y:    the point in the room the camera looks at
+// zoom:    1 = the whole room, 4 = a tight close-up
+// dur:     how long the shot stays on screen (seconds)
+// who:     'you', 'voice' (on the phone) or '' (a caption); text: the words
+// sfx:     sounds that play when the shot appears
+// flash:   lightning;  shake: the camera jolts
+const SHOTS = [
+  { at: 2.5, x: 240, y: 135, zoom: 1, dur: 3.6, who: '', text: 'The old neighbourhood. 2 a.m.', sfx: [() => sfx.setRain(true, 0.035)] },
+  { at: 3.5, x: 216, y: 190, zoom: 4.5, dur: 2.0, sfx: [sfx.phoneRing] },
+  { at: 4.6, x: 188, y: 165, zoom: 2.6, dur: 1.8, sfx: [sfx.phoneRing] },
+  { at: 7.6, x: 184, y: 150, zoom: 3.4, dur: 1.9, who: 'you', text: 'Yeah.', sfx: [sfx.phoneFlip] },
+  { at: 10, x: 139, y: 105, zoom: 5, dur: 3.5, who: 'voice', text: "Been a long time. You remember me? 'Course you do.", sfx: [() => sfx.phoneVoice(3.2)] },
+  { at: 13, x: 184, y: 150, zoom: 3.4, dur: 3.2, who: 'voice', text: "I've got your wife. She's right here with me.", sfx: [() => sfx.phoneVoice(2.8)] },
+  { at: 17, x: 190, y: 165, zoom: 2, dur: 4.6, who: 'voice', text: "You're doing one last job for the Vipers. Say no, and she pays for it. Slowly.", sfx: [() => sfx.phoneVoice(4.3)] },
+  { at: 22.5, x: 190, y: 150, zoom: 4.6, dur: 2.6, who: 'you', text: 'Listen to me very carefully.' },
+  { at: 25, x: 196, y: 148, zoom: 3.6, dur: 3.9, who: 'you', text: "I'm going to find you. Then every last one of your Vipers." },
+  { at: 27.7, x: 220, y: 150, zoom: 1.4, dur: 4.0, who: 'you', text: "And when I'm done, there won't be enough of you left to bury.", flash: true, sfx: [sfx.thunder] },
+  { at: 32.7, x: 128, y: 188, zoom: 4, dur: 1.6, sfx: [sfx.phoneFlip] },
+  { at: 36.4, x: 258, y: 170, zoom: 2.4, dur: 1.6, sfx: [sfx.clang] },
+  { at: 39.6, x: 292, y: 156, zoom: 2.2, dur: 1.8, sfx: [sfx.creak] },
+  { at: 40.35, x: 320, y: 172, zoom: 2, dur: 1.1, shake: true, sfx: [sfx.crack, () => setTimeout(sfx.crash, 350)] },
+  { at: 42.2, x: 330, y: 165, zoom: 2.7, dur: 3.0 },
+  { at: 44.2, x: 326, y: 156, zoom: 3.4, dur: 1.8, sfx: [sfx.click] },
+  { at: 45.0, x: 312, y: 150, zoom: 3.4, dur: 2.0, sfx: [sfx.spin] },
+  { at: 50.0, x: 410, y: 165, zoom: 2.2, dur: 2.8, sfx: [sfx.doorCreak, () => sfx.setRain(true, 0.13)] },
 ];
 
-// ---- sounds on cue ----
-const EVENTS = [
-  [0, () => sfx.setRain(true, 0.035)],
-  [2.0, () => flashAt(2.0)],
-  [3.0, sfx.phoneRing], [4.2, sfx.phoneRing], [5.4, sfx.phoneRing],
-  [6.6, sfx.phoneFlip],
-  [9.0, () => sfx.phoneVoice(3.3)], [12.6, () => sfx.phoneVoice(2.9)], [15.8, () => sfx.phoneVoice(4.4)],
-  [27.6, () => { flashAt(27.6); sfx.thunder(); }],
-  [31.2, sfx.phoneFlip], [32.55, sfx.step],
-  [34.4, sfx.step], [34.9, sfx.step], [35.4, sfx.step],
-  [36.3, sfx.clang], [36.9, sfx.step], [37.3, sfx.step], [37.9, sfx.clang],
-  [38.2, sfx.creak], [39.0, sfx.creak], [40.0, sfx.crack], [40.6, sfx.crash], [41.55, sfx.clang],
-  [42.9, sfx.step], [43.3, sfx.step], [44.3, sfx.click], [44.9, sfx.spin],
-  [46.5, sfx.step], [47.0, sfx.step], [47.5, sfx.step], [48.0, sfx.step], [48.5, sfx.step],
-  [48.9, () => { sfx.doorCreak(); sfx.setRain(true, 0.13); }],
-  [49.9, sfx.step], [50.4, sfx.step], [50.9, sfx.step],
-];
 let lightning = -10;
-function flashAt(t) { lightning = t; }
 
 // ---- small maths helpers ----
 const clamp01 = (k) => (k < 0 ? 0 : k > 1 ? 1 : k);
@@ -102,13 +101,14 @@ function stateAt(t) {
     p.lean = lerp(0.22, 0.34, k);
     p.hF = lerp2(p.hF, [216, 192], k);
   } else if (t < 31.2) {                           // on the phone
-    p = sit(165); p.tilt = 0.05; p.hF = [216, 192];
+    p = sit(165); p.tilt = 0.05;
+    p.hF = lerp2([216, 192], p.hF, ramp(t, 6.4, 7.2)); // passes the phone to his far hand
     p.ear = ramp(t, 6.2, 7.2);
     s.phone = 'hand'; s.phoneOpen = t > 6.6;
     const anger = ramp(t, 20.6, 22);               // leans in for his threat
     p.lean = lerp(0.22, 0.4, anger);
     p.tilt = lerp(0.05, -0.12, anger);
-    p.hB = lerp2(p.hB, [p.x + 26, 186], anger);    // other fist clenched
+    p.hF = lerp2(p.hF, [p.x + 27, 185], anger);    // near fist clenched
   } else if (t < 32.6) {                           // snaps the phone shut and tosses it
     p = sit(165); p.tilt = 0.1;
     const down = ramp(t, 31.2, 31.8);
@@ -223,10 +223,12 @@ function drawMan(g, p, s) {
   const neck = [sh[0] + Math.sin(p.lean) * B.neck, sh[1] - Math.cos(p.lean) * B.neck];
   const ht = p.lean + p.tilt;
   const head = [neck[0] + Math.sin(ht) * B.head, neck[1] - Math.cos(ht) * B.head];
-  const ear = [head[0] - 5, head[1] + 4];          // phone goes to the back of his head, so you still see his face
+  const ear = [head[0] - 2, head[1] + 3];          // his far ear: the phone is held in his far hand, so his face stays clear
 
   // back arm and back leg (further from you, so darker)
-  const hb = limb(g, sh[0] - 2, sh[1] + 1, p.hB[0], p.hB[1], B.upper, B.fore, 1, 6, 5, 128, 128);
+  const handB = lerp2(p.hB, ear, p.ear);
+  const hb = limb(g, sh[0] - 2, sh[1] + 1, handB[0], handB[1], B.upper, B.fore, p.ear > 0.5 ? -1 : 1, 6, 5, 128, 128); // elbow back when the phone is at his ear
+  if (s.phone === 'hand' && p.ear > 0.5) drawPhone(g, hb[0] - 2, hb[1] + 1, s.phoneOpen, -0.5);
   limb(g, hip[0] - 1, hip[1], p.fB[0], p.fB[1], B.thigh, B.shin, -1, 9, 8, 26, 26);
   g.fillStyle = css(10); g.fillRect(p.fB[0] - 3, p.fB[1] - 3, 10, 3.5);
   if (s.gun === 'back') drawGun(g, hb[0], hb[1], 0.9);
@@ -248,10 +250,10 @@ function drawMan(g, p, s) {
   g.fillStyle = css(70); g.fillRect(2, -4, 5, 1);                           // brow
   g.restore();
   // front arm, and whatever he's holding
-  const hand = lerp2(p.hF, ear, p.ear);
+  const hand = p.hF;
   const hf = limb(g, sh[0] + 1, sh[1] + 1, hand[0], hand[1], B.upper, B.fore, 1, 7, 6, 182, 182);
   g.fillStyle = css(182); g.beginPath(); g.arc(hf[0], hf[1], 3, 0, Math.PI * 2); g.fill();
-  if (s.phone === 'hand') drawPhone(g, hf[0], hf[1], s.phoneOpen, p.ear > 0.5 ? -0.3 : 0.4);
+  if (s.phone === 'hand' && p.ear <= 0.5) drawPhone(g, hf[0], hf[1], s.phoneOpen, 0.4);
   if (s.bar === 'hand') drawBar(g, hf[0], hf[1], hf[0] + 10, hf[1] + 38);
   if (s.bar === 'pry') drawBar(g, hf[0] - 10, hf[1] + 3, s.barTip[0], s.barTip[1]);
   if (s.gun === 'hand') drawGun(g, hf[0], hf[1], s.gunAngle);
@@ -338,7 +340,7 @@ function drawStash(g, s) {
   // wanted posters: him, years younger
   for (const [x, y] of [[303, 120], [337, 122]]) {
     g.fillStyle = css(185); g.fillRect(x, y, 27, 30);
-    g.fillStyle = css(30); g.font = 'bold 5px Georgia'; g.fillText('WANTED', x + 4, y + 7);
+    g.fillStyle = css(30); g.font = 'bold 4.5px Georgia'; g.textAlign = 'center'; g.fillText('WANTED', x + 13.5, y + 7); g.textAlign = 'left';
     g.beginPath(); g.arc(x + 13.5, y + 15, 4, 0, 7); g.fill(); g.fillRect(x + 8, y + 19, 11, 5);
     g.fillRect(x + 5, y + 26, 17, 1);
   }
@@ -439,35 +441,36 @@ export class Cutscene {
   constructor(canvas, onEnd) {
     this.g = canvas.getContext('2d');
     this.onEnd = onEnd;
-    this.t = 0;
-    this.next = 0;            // next event to play
-    this.done = false;
+    this.shot = 0;            // which shot is showing
+    this.shotT = 0;           // how long it has been showing
+    this.done = true;
     this.subs = document.getElementById('subs');
     this.skipEl = document.getElementById('skip');
     this.lastLine = null;
   }
 
   start() {
-    this.t = 0; this.next = 0; this.done = false; lightning = -10;
+    this.done = false;
     this.skipEl.hidden = false;
-    this.showLine(null);
+    this.show(0);
   }
 
-  // jump to a moment (for testing): events before it are not played
-  seek(t) {
-    this.t = t;
-    this.next = EVENTS.findIndex((e) => e[0] >= t);
-    if (this.next < 0) this.next = EVENTS.length;
+  // put shot i on screen (also handy for testing: game.cutscene.show(5))
+  show(i) {
+    if (i >= SHOTS.length) { this.finish(); return; }
+    this.shot = i;
+    this.shotT = 0;
+    for (const play of SHOTS[i].sfx || []) play();
   }
 
   update(dt) {
     if (this.done) return;
-    this.t += dt;
-    while (this.next < EVENTS.length && EVENTS[this.next][0] <= this.t) EVENTS[this.next++][1]();
-    if (this.t >= END) this.finish();
+    this.shotT += dt;
+    if (this.shotT >= SHOTS[this.shot].dur) this.show(this.shot + 1);
   }
 
-  skip() { if (!this.done) this.finish(); }
+  next() { if (!this.done) this.show(this.shot + 1); }   // click: next shot
+  skip() { if (!this.done) this.finish(); }              // Space / Esc: skip the lot
 
   finish() {
     this.done = true;
@@ -477,32 +480,47 @@ export class Cutscene {
     this.onEnd();
   }
 
-  showLine(line) {
-    if (line === this.lastLine) return;
-    this.lastLine = line;
-    if (!line) { this.subs.hidden = true; return; }
+  showLine(shot) {
+    const key = shot && shot.text ? shot : null;
+    if (key === this.lastLine) return;
+    this.lastLine = key;
+    if (!key) { this.subs.hidden = true; return; }
     this.subs.hidden = false;
-    this.subs.className = line.who || 'caption';
-    const who = line.who === 'you' ? 'YOU' : line.who === 'voice' ? 'VOICE ON THE PHONE' : '';
-    this.subs.innerHTML = (who ? `<b>${who}</b>` : '') + `<span>${line.text}</span>`;
+    this.subs.className = key.who || 'caption';
+    const who = key.who === 'you' ? 'YOU' : key.who === 'voice' ? 'VOICE ON THE PHONE' : '';
+    this.subs.innerHTML = (who ? `<b>${who}</b>` : '') + `<span>${key.text}</span>`;
   }
 
   draw() {
-    const g = this.g, t = this.t, s = stateAt(t);
-    g.save();
+    const g = this.g;
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-    // a little shake as the panel crashes down
-    const shake = t > 40.55 && t < 40.85 ? (Math.random() - 0.5) * 3 : 0;
-    g.translate(shake, shake * 0.5);
+    if (this.done) return;
+    const shot = SHOTS[this.shot];
+    if (this.shotT < CUT) { this.showLine(shot); return; }   // the blink between shots
+    const t = shot.at, s = stateAt(t);
+    lightning = shot.flash ? t - 0.05 : -10;
+    // the camera: zoom in on (x, y), but never look outside the room
+    const z = shot.zoom;
+    const vw = W / z, vh = (H - BAR * 2) / z;
+    const cx = Math.max(vw / 2, Math.min(W - vw / 2, shot.x));
+    const cy = Math.max(BAR + vh / 2, Math.min(H - BAR - vh / 2, shot.y));
+    g.save();
+    g.translate(W / 2, H / 2);
+    if (shot.shake && this.shotT < 0.5) g.translate((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 3);
+    g.scale(z, z);
+    g.translate(-cx, -cy);
     drawRoomBack(g);
     drawWindowRain(g, t);
     drawStash(g, s);
     drawPanel(g, s);
     drawDoor(g, s, t);
-    // things lying around: phone on the table (buzzing when it rings) or on the bed, crowbar
+    // things lying around: the phone (buzzing when it rings), the crowbar
     if (s.phone === 'table') {
-      const buzz = s.ringing && (t * 20) % 2 < 1 ? 1 : 0;
-      g.fillStyle = css(30); g.fillRect(214 + buzz, 192, 9, 4);
+      g.fillStyle = css(30); g.fillRect(214 + (s.ringing ? 1 : 0), 192, 9, 4);
+      if (s.ringing) {        // little buzz marks
+        g.fillStyle = css(150);
+        g.fillRect(212, 190, 1, 2); g.fillRect(225, 190, 1, 2); g.fillRect(211, 193, 1, 2); g.fillRect(226, 193, 1, 2);
+      }
     } else if (s.phone === 'loose') {
       g.fillStyle = css(30); g.fillRect(s.phonePos[0], s.phonePos[1], 9, 4);
     }
@@ -513,17 +531,23 @@ export class Cutscene {
       drawBar(g, lerp(279, 268, k), lerp(180, FLOOR - 2, k), lerp(289, 304, k), lerp(218, FLOOR - 1, k));
     }
     drawMan(g, s.man, s);
-    // light: from the doorway once it's open, and the bulb
-    if (s.door > 0) {
+    if (s.door > 0) {          // light spilling in from the doorway
       g.fillStyle = `rgba(200,200,200,${0.12 * s.door})`;
       poly(g, [400, FLOOR, 400 + 48 * s.door, FLOOR, 400 + 48 * s.door - 70, H - BAR, 340, H - BAR]);
     }
-    const flash = Math.max(0, 1 - (t - lightning) / 0.25) * (t - lightning < 0.12 || t - lightning > 0.18 ? 1 : 0.3);
-    drawLight(g, t, flash);
+    drawLight(g, t, shot.flash ? 0.55 : 0);
     g.restore();
-    // letterbox bars and fades
+    // dark edges round every shot, like an old film still
+    const vig = g.createRadialGradient(W / 2, H / 2, 70, W / 2, H / 2, 290);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, `rgba(0,0,0,${0.35 + 0.08 * Math.min(4, z)})`);
+    g.fillStyle = vig; g.fillRect(0, 0, W, H);
+    // letterbox bars, and a fade at the very start and end
     g.fillStyle = '#000'; g.fillRect(0, 0, W, BAR); g.fillRect(0, H - BAR, W, BAR);
-    if (s.fade > 0) { g.fillStyle = `rgba(0,0,0,${s.fade})`; g.fillRect(0, 0, W, H); }
-    this.showLine(LINES.find((l) => t >= l.t && t < l.end) || null);
+    let fade = 0;
+    if (this.shot === 0) fade = 1 - Math.min(1, this.shotT / 1.2);
+    if (this.shot === SHOTS.length - 1) fade = Math.max(0, (this.shotT - (shot.dur - 1)) / 1);
+    if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade})`; g.fillRect(0, 0, W, H); }
+    this.showLine(shot);
   }
 }

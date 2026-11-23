@@ -387,7 +387,7 @@ class Game {
     sfx.unlock();
     switch (this.state) {
       case 'title': this.playCutscene(); break;
-      case 'cutscene': this.cutscene.skip(); break;
+      case 'cutscene': this.cutscene.next(); break;
       case 'card': this.begin(); break;
       case 'paused': this.begin(); break;
       case 'dead': this.load(this.levelIndex); this.begin(); break;
@@ -454,7 +454,8 @@ function showTitle() {
 
 addEventListener('keydown', (e) => {
   game.keys.add(e.code);
-  if (game.state === 'cutscene' && (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter')) game.cutscene.skip();
+  if (game.state === 'cutscene' && e.code === 'Enter') game.cutscene.next();
+  else if (game.state === 'cutscene' && (e.code === 'Space' || e.code === 'Escape')) game.cutscene.skip();
   else if (e.code === 'Space') game.firePressed = game.state === 'play';
   if (e.code === 'KeyR') game.reloadPressed = game.state === 'play';
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
