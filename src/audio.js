@@ -126,3 +126,19 @@ export function clang() {
 }
 export function spin() { for (let i = 0; i < 9; i++) burst({ vol: 0.25, dur: 0.02, f0: 6000, f1: 4000, type: 'highpass', delay: i * 0.05 * (1 + i * 0.12) }); }
 export function doorCreak() { tone({ vol: 0.1, dur: 1.0, f0: 260, f1: 150, type: 'sawtooth' }); burst({ vol: 0.12, dur: 0.9, f0: 1200, f1: 700, type: 'bandpass', q: 10 }); }
+
+// ---- the shotgun, doors and stairs ----
+export function shotgun() {
+  burst({ vol: 1.3, dur: 0.45, f0: 3500, f1: 120, q: 0.5 });
+  burst({ vol: 0.6, dur: 1.4, f0: 900, f1: 60, q: 0.4, delay: 0.03 });   // the boom rolling round the walls
+  tone({ vol: 1.0, dur: 0.3, f0: 110, f1: 30 });
+}
+export function enemyShotgun(dist) {
+  const v = 1.0 / (1 + dist * 0.25);
+  burst({ vol: v, dur: 0.35, f0: 2400 / (1 + dist * 0.08), f1: 120, q: 0.5 });
+  tone({ vol: v * 0.8, dur: 0.22, f0: 120, f1: 40 });
+}
+export function breakOpen() { burst({ vol: 0.5, dur: 0.06, f0: 2500, f1: 1200, type: 'bandpass', q: 3 }); click(); }
+export function snapShut() { burst({ vol: 0.6, dur: 0.07, f0: 3000, f1: 900, type: 'bandpass', q: 2 }); tone({ vol: 0.2, dur: 0.08, f0: 300, f1: 150 }); }
+export function door() { burst({ vol: 0.18, dur: 0.45, f0: 700, f1: 300, type: 'bandpass', q: 3 }); tone({ vol: 0.05, dur: 0.4, f0: 220, f1: 180, type: 'sawtooth' }); }
+export function stairs() { for (let i = 0; i < 5; i++) burst({ vol: 0.28, dur: 0.08, f0: 320, f1: 90, delay: i * 0.22 }); }

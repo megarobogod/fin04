@@ -57,3 +57,8 @@ body { display: grid; place-items: center; font-family: Georgia, 'Times New Roma
 /* the cutscene is drawn on its own sharp, high-resolution canvas on top of the game */
 #cine { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #000; }
 #cine[hidden] { display: none; }
+
+/* weapon name over the ammo, the floor name by the gang count, the lieutenant's lines */
+#wname { display: block; text-align: right; font-size: .45em; letter-spacing: .25em; color: #888; margin-bottom: .2em; }
+#floor { color: #888; }
+#subs.lt span { color: #bbb; }

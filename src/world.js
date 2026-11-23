@@ -1,30 +1,40 @@
 // world.js - the level grid: which squares are walls, the textures on every
-// wall and floor square, the light, line of sight, and blood painted onto
-// walls and floors (each square gets its own copy of a texture the first
-// time something is painted on it, so the stain stays where it landed).
+// wall and floor square, sliding doors, stairs, the light, line of sight,
+// and blood painted onto walls and floors (each square gets its own copy of
+// a texture the first time something is painted on it, so the stain stays
+// where it landed).
 
 import { WALLS } from './levels.js';
 import { T, splatter, bulletHole, bloodColor, rand } from './textures.js';
 
 const LIGHT_RES = 4;        // light is stored 4 x 4 times per square, for smooth pools
 const LIGHT_MAX = 1.6;      // brightest a spot can get
+const DOOR_SPEED = 2.2;     // how fast doors slide (fraction of a square per second)
+const DOOR_NEAR = 1.5;      // doors open when someone is this close
+const DOOR_STAY = 2.5;      // seconds a door stays open after everyone has gone
 
 export class World {
-  constructor(level, art) {
-    const rows = level.map;
+  // `level` has the floor and ceiling textures; `map` is this floor's grid.
+  constructor(level, art, map) {
+    const rows = map;
     const w = (this.w = Math.max(...rows.map((r) => r.length)));
     const h = (this.h = rows.length);
     const n = w * h;
     this.solid = new Uint8Array(n);
     this.wallTex = new Array(n).fill(null);
     this.floorTex = new Array(n).fill(null);
-    this.ceilTex = level.ceiling ? new Array(n).fill(null) : null;
+    const ceilings = level.ceilings || null;   // which floor kinds have a ceiling over them
+    this.ceilTex = level.ceiling || ceilings ? new Array(n).fill(null) : null;
     this.wallName = new Array(n).fill(null);
     this.ownedWall = new Uint8Array(n);
     this.ownedFloor = new Uint8Array(n);
+    this.doorIdx = new Int16Array(n).fill(-1);
+    this.doors = [];
+    this.stairs = new Uint8Array(n);
     this.things = [];
     this.flash = 0;            // extra light everywhere (muzzle flash, lightning)
 
+    const floors = level.floors, firstFloor = Object.keys(floors)[0];
     const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? '#' : rows[y][x] ?? '#');
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -37,19 +47,28 @@ export class World {
           this.wallTex[i] = art.walls[name];
           continue;
         }
-        // Floor: '.' or ','. A thing's square uses whichever its neighbours use most.
+        // The floor. A thing or a door stands on whichever floor its neighbours use most.
         let kind = ch;
-        if (ch !== '.' && ch !== ',') {
-          let commas = 0, dots = 0;
+        if (!floors[ch]) {
+          const count = {};
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const c = at(x + dx, y + dy);
-            if (c === ',') commas++; else if (c === '.') dots++;
+            if (floors[c] && c !== '^') count[c] = (count[c] || 0) + 1;
           }
-          kind = commas > dots ? ',' : '.';
-          this.things.push({ ch, x: x + 0.5, y: y + 0.5 });
+          kind = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || firstFloor;
+          if (ch === '|' || ch === '-') {
+            // a sliding door: '|' is a door you walk through going east-west, '-' going north-south
+            this.doorIdx[i] = this.doors.length;
+            this.doors.push({ cell: i, x: x + 0.5, y: y + 0.5, vertical: ch === '|', open: 0, stay: 0 });
+            this.wallTex[i] = art.walls.slidedoor;
+          } else {
+            this.things.push({ ch, x: x + 0.5, y: y + 0.5 });
+          }
         }
-        this.floorTex[i] = art.floors[level.floors[kind]];
-        if (this.ceilTex) this.ceilTex[i] = art.floors[level.ceiling];
+        if (ch === '^') this.stairs[i] = 1;
+        this.floorTex[i] = art.floors[floors[kind]];
+        const ceil = ceilings ? ceilings[kind] : level.ceiling;
+        if (this.ceilTex && ceil) this.ceilTex[i] = art.floors[ceil];
       }
     }
     this.lw = w * LIGHT_RES;
@@ -57,12 +76,58 @@ export class World {
     this.light = new Float32Array(this.lw * this.lh);
   }
 
-  // ---- walls and collisions ----
+  // ---- walls, doors and collisions ----
+  // Solid for walking: walls, and doors that aren't (nearly) fully open.
   solidCell(ix, iy) {
     if (ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) return true;
-    return this.solid[iy * this.w + ix] === 1;
+    const i = iy * this.w + ix;
+    if (this.solid[i]) return true;
+    const d = this.doorIdx[i];
+    return d >= 0 && this.doors[d].open < 0.9;
   }
   solidAt(x, y) { return this.solidCell(Math.floor(x), Math.floor(y)); }
+
+  // Is there a roof over this spot? (No roof = outdoors: sky and rain.)
+  indoors(x, y) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    if (!this.ceilTex || ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) return false;
+    return !!this.ceilTex[iy * this.w + ix];
+  }
+
+  // A ray crossing door square i: does it hit the door (which sits across the
+  // middle of the square and slides sideways as it opens)? Returns where, or null.
+  doorHit(i, px, py, rdx, rdy) {
+    const d = this.doors[this.doorIdx[i]];
+    const cx = i % this.w, cy = (i / this.w) | 0;
+    if (d.vertical) {
+      if (rdx === 0) return null;
+      const t = (cx + 0.5 - px) / rdx;
+      if (t < 0) return null;
+      const f = py + t * rdy - cy;
+      if (f < d.open || f >= 1) return null;
+      return { dist: t, u: f - d.open, side: 0 };
+    }
+    if (rdy === 0) return null;
+    const t = (cy + 0.5 - py) / rdy;
+    if (t < 0) return null;
+    const f = px + t * rdx - cx;
+    if (f < d.open || f >= 1) return null;
+    return { dist: t, u: f - d.open, side: 1 };
+  }
+
+  // Doors open for anyone who comes near (you or the gang), then close again.
+  // `onOpen(door)` is called when a shut door starts to open (for the sound).
+  updateDoors(dt, actors, onOpen) {
+    for (const d of this.doors) {
+      let near = false;
+      for (const a of actors) if (Math.abs(a.x - d.x) < DOOR_NEAR && Math.abs(a.y - d.y) < DOOR_NEAR) { near = true; break; }
+      if (near) { if (d.open === 0 && onOpen) onOpen(d); d.stay = DOOR_STAY; } else d.stay -= dt;
+      const target = d.stay > 0 ? 1 : 0;
+      const step = dt * DOOR_SPEED;
+      if (target > d.open) d.open = Math.min(1, d.open + step);
+      else if (target < d.open) d.open = Math.max(0, d.open - step);
+    }
+  }
 
   // Would a circle of radius r at (x, y) overlap a wall?
   hitsWall(x, y, r) {
@@ -78,7 +143,16 @@ export class World {
     return blocked;
   }
 
-  // Is there a clear straight line between two points? (walls only)
+  // Can you see through this square? (Walls and mostly-shut doors block sight.)
+  seeThrough(ix, iy) {
+    if (ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) return false;
+    const i = iy * this.w + ix;
+    if (this.solid[i]) return false;
+    const d = this.doorIdx[i];
+    return d < 0 || this.doors[d].open > 0.6;
+  }
+
+  // Is there a clear straight line between two points?
   clear(ax, ay, bx, by) {
     let mx = Math.floor(ax), my = Math.floor(ay);
     const ex = Math.floor(bx), ey = Math.floor(by);
@@ -90,12 +164,12 @@ export class World {
     let steps = Math.abs(ex - mx) + Math.abs(ey - my);
     while (steps-- > 0) {
       if (tx < ty) { tx += ddx; mx += sx; } else { ty += ddy; my += sy; }
-      if (this.solidCell(mx, my)) return false;
+      if (!this.seeThrough(mx, my)) return false;
     }
     return true;
   }
 
-  // Fire a ray from (x, y) along the unit direction (dx, dy) until it hits a wall.
+  // Fire a ray from (x, y) along the unit direction (dx, dy) until it hits a wall or a door.
   // Returns the distance, which square was hit and where across its face (u, 0..1).
   // The u flip matches the renderer, so a splat painted at u shows up where the ray hit.
   castRay(x, y, dx, dy, max = 64) {
@@ -109,13 +183,19 @@ export class World {
       if (tx < ty) { tx += ddx; mx += sx; side = 0; } else { ty += ddy; my += sy; side = 1; }
       const dist = side === 0 ? tx - ddx : ty - ddy;
       if (dist > max) return { dist: max, cell: -1 };
-      if (this.solidCell(mx, my)) {
+      const inside = mx >= 0 && my >= 0 && mx < this.w && my < this.h;
+      const i = my * this.w + mx;
+      if (inside && this.doorIdx[i] >= 0) {
+        const hit = this.doorHit(i, x, y, dx, dy);
+        if (hit) return { dist: hit.dist, cell: i, side: hit.side, u: hit.u };
+        continue;
+      }
+      if (!inside || this.solid[i]) {
         let wx = side === 0 ? y + dist * dy : x + dist * dx;
         wx -= Math.floor(wx);
         let u = wx;
         if ((side === 0 && dx < 0) || (side === 1 && dy > 0)) u = 1 - u;
-        const inside = mx >= 0 && my >= 0 && mx < this.w && my < this.h;
-        return { dist, cell: inside ? my * this.w + mx : -1, side, u };
+        return { dist, cell: inside ? i : -1, side, u };
       }
     }
   }

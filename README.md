@@ -8,14 +8,15 @@ call to say they've got your wife. You dig your old revolver out of a stash behi
 the wall panelling and walk out into the rain. (Click for the next shot, Space skips it.)
 
 You have a revolver: six rounds, reloaded one at a time. Clear the Vipers gang
-out of three levels: **Main Street**, **The Back Alleys** and **The Hideout**,
-where the boss is waiting.
+out of three levels: **The Dellwood** (an apartment building, three floors, with the
+Vipers lieutenant at the top), **The Back Alleys** and **The Hideout**, where the boss is waiting.
 
 ## Controls
 - **WASD**: move. **Mouse**: look around, including up and down. **Click** or **Space**: shoot.
 - **Hold right-click**: aim down the revolver's sights. It zooms in and your shots go dead straight, but you walk slower and can't run.
   Aim for the head: headshots do over twice the damage.
 - **R**: reload (one round at a time; shoot to stop early).
+- **1 / 2** or the **mouse wheel**: switch between the revolver and the shotgun (once you've taken it).
 - **Shift**: run (faster, but your aim wobbles more).
 - **Arrow keys** / **Q E**: turn without the mouse.
 

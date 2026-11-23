@@ -8,6 +8,7 @@
 //   fire  - shooting (a burst for tommy guns)
 //   pain  - flinching after being hit
 //   dying / dead
+//   downed - the lieutenant, beaten but alive (the interrogation follows)
 
 // ---- tuning numbers ----
 export const TYPES = {
@@ -24,6 +25,15 @@ export const TYPES = {
     aimTime: [0.55, 0.8], cooldown: [1.5, 2.3],
     range: 12, keep: 5, painChance: 0.5, drop: 1,
     looks: ['heavy'],
+  },
+  // The Vipers lieutenant at the top of the Dellwood. A sawn-off shotgun:
+  // deadly up close, weak at range. He doesn't die: he goes down, and talks.
+  lieutenant: {
+    hp: 300, speed: 1.3, radius: 0.3, height: 1.02,
+    burst: 1, gap: 0, damage: [18, 30], accuracy: 0.8, shotgun: true,
+    aimTime: [0.6, 0.85], cooldown: [1.3, 1.9],
+    range: 10, keep: 3, painChance: 0.35, drop: 0, downed: true,
+    looks: ['lieutenant'],
   },
   boss: {
     hp: 450, speed: 1.5, radius: 0.32, height: 1.06,
@@ -65,6 +75,7 @@ export class Enemy {
   // Which picture to show this frame.
   frame() {
     if (this.state === 'dead') return 'dead';
+    if (this.state === 'downed') return 'die1';
     if (this.state === 'dying') return this.deathT < 0.18 ? 'die1' : this.deathT < 0.4 ? 'die2' : 'dead';
     if (this.state === 'pain') return 'hurt';
     if (this.state === 'fire') return this.flashT > 0 ? 'shoot' : 'aim';
@@ -83,6 +94,13 @@ export class Enemy {
   hurt(game, dmg) {
     if (this.dead) return;
     this.hp -= dmg;
+    if (this.hp <= 0 && this.def.downed) {
+      this.hp = 0;
+      this.dead = true;          // out of the fight, but not dead
+      this.state = 'downed';
+      game.onLieutenantDown(this);
+      return;
+    }
     if (this.hp <= 0) {
       this.dead = true;
       this.state = 'dying';
@@ -104,7 +122,7 @@ export function updateEnemies(game, dt) {
   for (const e of game.enemies) {
     e.moved = false;
     e.flashT -= dt;
-    if (e.state === 'dead') continue;
+    if (e.state === 'dead' || e.state === 'downed') continue;
     if (e.state === 'dying') {
       e.deathT += dt;
       // the pool of blood spreads out under the body

@@ -216,6 +216,67 @@ function buildWalls() {
     if (y < 3 + hash(p, 4, 21) * 4) return gray(14);             // uneven tops
     return gray(v);
   });
+  // ---- inside the Dellwood apartments ----
+  // striped wallpaper above a dark wooden dado rail
+  const paper = (base, stripe, salt) => (x, y) => {
+    if (y >= 44) {                                                // wood panelling below the rail
+      const v = 48 + Math.sin(y * 0.5 + x * 0.05) * 4 + rand() * 8 + ((x & 15) === 0 ? -16 : 0);
+      return gray(y === 44 || y === 45 ? 90 : v);
+    }
+    if (y >= 41) return gray(34);                                 // the rail
+    let v = base + (((x >> 2) & 3) === 0 ? stripe : 0) + noise(x, y, 4, salt) * 18 + rand() * 8;
+    if (noise(x, y, 8, salt + 1) > 0.74) v -= 22;                 // water stains
+    return gray(v);
+  };
+  W.wallpaper = makeTex(T, T, paper(104, 16, 41));
+  W.wallpaper2 = makeTex(T, T, paper(70, 14, 43), (g) => {
+    g.fillStyle = css(128); poly(g, [40, 4, 58, 8, 54, 30, 46, 22, 38, 26]);   // a curl of peeling paper
+  });
+  W.plaster = makeTex(T, T, (x, y) => {
+    let v = 122 + noise(x, y, 4, 45) * 26 + rand() * 10;
+    if (noise(x, y, 16, 46) > 0.8) v -= 30;
+    return gray(v);
+  }, (g) => {
+    g.strokeStyle = css(70); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(10, 0); g.lineTo(16, 14); g.lineTo(12, 26); g.lineTo(20, 40); g.stroke();
+  });
+  // an apartment door set in the wallpaper, with a brass number and a spyhole
+  W.aptdoor = makeTex(T, T, paper(96, 16, 47), (g) => {
+    g.fillStyle = css(22); g.fillRect(14, 4, 36, 60);
+    g.fillStyle = css(58); g.fillRect(17, 7, 30, 57);
+    g.strokeStyle = css(80); g.strokeRect(20.5, 11.5, 23, 20); g.strokeRect(20.5, 36.5, 23, 22);
+    g.fillStyle = css(190); g.fillRect(28, 15, 8, 5);
+    g.fillStyle = css(30); g.font = 'bold 5px Arial'; g.fillText(String(2 + ((Math.random() * 7) | 0)) + 'B', 29, 19.5);
+    g.fillStyle = css(10); g.beginPath(); g.arc(32, 26, 1.2, 0, 7); g.fill();
+    g.fillStyle = css(185); g.beginPath(); g.arc(43, 38, 1.6, 0, 7); g.fill();
+  });
+  // a bank of brass mailboxes in the lobby
+  W.mailboxes = makeTex(T, T, paper(100, 16, 49), (g) => {
+    g.fillStyle = css(30); g.fillRect(6, 6, 52, 34);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+      g.fillStyle = css(120 + ((r + c) % 2) * 20); g.fillRect(8 + c * 12.5, 8 + r * 10.5, 11, 9);
+      g.fillStyle = css(40); g.fillRect(10 + c * 12.5, 11 + r * 10.5, 7, 1.5);
+    }
+  });
+  // the old lift, doors shut, an arrow dial above
+  W.elevator = makeTex(T, T, paper(96, 16, 51), (g) => {
+    g.fillStyle = css(28); g.fillRect(10, 10, 44, 54);
+    g.fillStyle = css(96); g.fillRect(13, 13, 18, 51); g.fillRect(33, 13, 18, 51);
+    g.fillStyle = css(60); for (let x = 15; x < 51; x += 4) if (x < 30 || x > 34) g.fillRect(x, 13, 1, 51);
+    g.fillStyle = css(170); g.beginPath(); g.arc(32, 5, 4, Math.PI, 0); g.fill();
+    g.strokeStyle = css(20); g.beginPath(); g.moveTo(32, 5); g.lineTo(29, 2); g.stroke();
+    g.fillStyle = css(220); g.font = 'bold 4px Arial'; g.fillText('OUT OF ORDER', 18, 40);
+  });
+  // a plain wooden door that slides into the wall when someone comes near
+  W.slidedoor = makeTex(T, T, (x, y) => {
+    if (x < 2 || x > 61) return gray(26);
+    const v = 70 + Math.sin(y * 0.3 + x * 0.04) * 6 + rand() * 8 + noise(x, y, 4, 53) * 10;
+    return gray(v);
+  }, (g) => {
+    g.strokeStyle = css(44); g.lineWidth = 2;
+    g.strokeRect(10, 8, 44, 22); g.strokeRect(10, 36, 44, 22);
+    g.fillStyle = css(185); g.beginPath(); g.arc(8, 34, 2, 0, 7); g.fill();
+  });
   return W;
 }
 
@@ -260,6 +321,22 @@ function buildFloors() {
     if (x === 0 || y === 0) return gray(30);
     return gray(58 + noise(x, y, 4, 23) * 16 + rand() * 8);
   });
+  F.carpet = makeTex(T, T, (x, y) => {
+    if (x < 4 || x > 59) return gray(30 + rand() * 6);                       // dark border
+    const diamond = (Math.abs((x % 16) - 8) + Math.abs((y % 16) - 8)) < 4;
+    return gray(52 + (diamond ? 14 : 0) + noise(x, y, 8, 55) * 12 + rand() * 8 - (noise(x, y, 4, 56) > 0.75 ? 14 : 0));
+  });
+  F.lino = makeTex(T, T, (x, y) => {                                         // black and white tiles
+    const dark = ((x >> 4) + (y >> 4)) & 1;
+    if ((x & 15) === 0 || (y & 15) === 0) return gray(60);
+    return gray((dark ? 40 : 172) + noise(x, y, 8, 57) * 16 + rand() * 8);
+  });
+  F.stairs = makeTex(T, T, (x, y) => {                                       // steps going up
+    const step = y & 15;
+    if (step < 2) return gray(150);                                          // worn edge of each step
+    return gray(40 + step * 2 + rand() * 8 + noise(x, y, 4, 58) * 8);
+  });
+  F.plaster = makeTex(T, T, (x, y) => gray(92 + noise(x, y, 4, 59) * 18 + rand() * 6 - (x === 0 || y === 0 ? 30 : 0)));
   return F;
 }
 
@@ -291,6 +368,7 @@ export const LOOKS = {
   thugA: { coat: 46, shirt: 220, tie: 14, hat: 'fedora', hatShade: 22, band: 120, skin: 188, weapon: 'pistol' },
   thugB: { coat: 92, shirt: 200, tie: 30, hat: 'fedora', hatShade: 58, band: 25, skin: 176, weapon: 'pistol' },
   heavy: { coat: 66, shirt: 150, tie: 150, hat: 'cap', hatShade: 38, skin: 168, weapon: 'tommy', wide: 3 },
+  lieutenant: { coat: 28, trousers: 40, shirt: 222, tie: 14, hat: 'none', hatShade: 18, skin: 182, weapon: 'shotgun', wide: 1 },
   boss:  { coat: 215, trousers: 198, shirt: 24, tie: 235, hat: 'fedora', hatShade: 230, band: 18, skin: 192, weapon: 'tommy', wide: 2, cigar: true },
 };
 
@@ -338,6 +416,11 @@ function drawBody(g, o, pose) {
     g.fillStyle = css(20);
     if (o.weapon === 'pistol') {
       g.fillRect(L - 2, 42 + swing, 3, 4); g.fillRect(L - 1.5, 45 + swing, 2, 5);
+    } else if (o.weapon === 'shotgun') {
+      g.strokeStyle = css(22); g.lineWidth = 3.5; g.lineCap = 'round';      // barrels across his body
+      g.beginPath(); g.moveTo(L - 2, 46); g.lineTo(R + 4, 26); g.stroke();
+      g.strokeStyle = css(62); g.lineWidth = 4;                              // wooden stock
+      g.beginPath(); g.moveTo(R - 4, 32); g.lineTo(R + 4, 26); g.stroke();
     } else {
       g.strokeStyle = css(24); g.lineWidth = 3.5; g.lineCap = 'round';
       g.beginPath(); g.moveTo(L - 1, 44); g.lineTo(R + 3, 30); g.stroke();
@@ -353,6 +436,9 @@ function drawBody(g, o, pose) {
     if (o.weapon === 'pistol') {
       g.fillStyle = css(26); g.fillRect(29, 23.5, 6, 5);
       g.fillStyle = css(4); circle(g, 32, 25.5, 1.8);
+    } else if (o.weapon === 'shotgun') {
+      g.fillStyle = css(28); g.fillRect(25.5, 22, 13, 7);
+      g.fillStyle = css(4); circle(g, 29.5, 25.5, 2); circle(g, 34.5, 25.5, 2);   // two barrels, looking at you
     } else {
       g.fillStyle = css(30); g.fillRect(25, 22, 14, 7);
       g.fillStyle = css(42); circle(g, 32, 32, 4.4);
@@ -363,7 +449,7 @@ function drawBody(g, o, pose) {
   // head
   g.fillStyle = css(o.skin - 35); g.fillRect(29.5, 15, 5, 5);  // neck
   g.fillStyle = css(o.skin); ellipse(g, 32, 12, 5, 6);
-  g.fillStyle = css(o.skin - 95); g.fillRect(27, 8, 10, 3.5);  // shadow under the hat brim
+  if (o.hat !== 'none') { g.fillStyle = css(o.skin - 95); g.fillRect(27, 8, 10, 3.5); }  // shadow under the hat brim
   g.fillStyle = css(14); g.fillRect(29.5, 11, 1.5, 1); g.fillRect(33, 11, 1.5, 1);
   g.fillStyle = css(o.skin - 80); g.fillRect(30.5, 15.5, 3, 1);
   if (o.cigar) { g.fillStyle = css(210); g.fillRect(34, 15, 4, 1.2); g.fillStyle = css(250); g.fillRect(38, 15, 1, 1.2); }
@@ -375,9 +461,12 @@ function drawBody(g, o, pose) {
     ellipse(g, 32, 8.5, 10.5, 2.2);
     g.fillStyle = css(o.band); g.fillRect(26.4, 5.6, 11.2, 2);
     g.fillStyle = css(Math.max(0, o.hatShade - 15)); g.fillRect(31.5, 2, 1, 3); // crown dent
-  } else {
+  } else if (o.hat === 'cap') {
     ellipse(g, 32, 6.5, 6.5, 3.8);
     ellipse(g, 32, 8.8, 7.5, 1.7);
+  } else {
+    ellipse(g, 32, 7.5, 5.4, 3.2);                                 // slicked-back hair
+    g.fillStyle = css(60); g.fillRect(28, 6, 8, 0.8);
   }
 }
 
@@ -472,6 +561,12 @@ function buildProps() {
     g.fillStyle = css(90); g.fillRect(1, 4, 22, 3);
     g.fillStyle = css(235); g.fillRect(10, 8, 4, 10); g.fillRect(7, 11, 10, 4);
     g.fillStyle = css(40); g.fillRect(8, 1, 8, 3);
+  });
+  P.shells = makeTex(24, 16, null, (g) => {
+    g.fillStyle = css(150); for (let i = 0; i < 4; i++) g.fillRect(4 + i * 4.5, 1, 3.4, 6);
+    g.fillStyle = css(185); for (let i = 0; i < 4; i++) g.fillRect(4 + i * 4.5, 6, 3.4, 2);
+    g.fillStyle = css(46); g.fillRect(2, 7, 20, 9);
+    g.fillStyle = css(160); g.fillRect(5, 10, 14, 3);
   });
   P.drop = makeTex(4, 4, null, (g) => { g.fillStyle = RED; circle(g, 2, 2, 2); });
   P.dust = makeTex(4, 4, null, (g) => { g.fillStyle = css(150); circle(g, 2, 2, 2); });
@@ -610,11 +705,63 @@ export function bulletHole(tex, u, v) {
 }
 
 // ---- everything together --------------------------------------------------
+// The sawn-off double-barrel, held low on the right, barrels pointing in.
+function buildShotgun() {
+  const c = newCanvas(220, 150), g = c.getContext('2d');
+  g.fillStyle = css(30); poly(g, [176, 106, 220, 92, 220, 150, 150, 150]);         // sleeve
+  g.fillStyle = css(225); poly(g, [152, 120, 180, 108, 190, 132, 162, 146]);       // cuff
+  // two barrels side by side, the top one catching the light
+  g.fillStyle = css(70); poly(g, [120, 58, 22, 30, 16, 46, 120, 82]);
+  g.fillStyle = css(96); poly(g, [120, 56, 24, 26, 20, 34, 120, 66]);
+  g.fillStyle = css(170); poly(g, [120, 56, 24, 26, 24, 28, 120, 58]);
+  g.fillStyle = css(10); ellipse(g, 20, 31, 3, 5); ellipse(g, 17, 41, 3, 5);       // muzzles
+  g.fillStyle = css(200); circle(g, 30, 25, 1.5);                                  // bead sight
+  // wooden fore-end under the barrels, with the left hand on it
+  g.fillStyle = css(58); poly(g, [100, 74, 60, 58, 56, 70, 98, 88]);
+  g.fillStyle = css(166); poly(g, [66, 62, 96, 70, 98, 88, 70, 84, 60, 74]);
+  // the action and hammers
+  g.fillStyle = css(88); poly(g, [118, 52, 150, 58, 156, 88, 120, 88]);
+  g.fillStyle = css(140); poly(g, [118, 52, 150, 58, 150, 61, 118, 55]);
+  g.fillStyle = css(40); poly(g, [142, 48, 156, 42, 160, 50, 148, 56]);
+  // stock, cut short, and the right hand round it
+  g.fillStyle = css(52); poly(g, [146, 80, 176, 74, 196, 124, 160, 138]);
+  g.fillStyle = css(172); poly(g, [136, 90, 166, 82, 184, 116, 166, 134, 138, 118]);
+  g.fillStyle = css(140); for (let i = 0; i < 3; i++) g.fillRect(140 + i * 2, 97 + i * 8, 26, 1.5);
+  // a bigger flash than the revolver's
+  const f = newCanvas(140, 140), fg = f.getContext('2d');
+  const grad = fg.createRadialGradient(70, 70, 3, 70, 70, 68);
+  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.3, 'rgba(235,235,235,0.85)'); grad.addColorStop(1, 'rgba(200,200,200,0)');
+  fg.fillStyle = grad;
+  const pts = [];
+  for (let i = 0; i < 22; i++) { const a = (i / 22) * Math.PI * 2, r = i % 2 ? 18 : 44 + (i % 3) * 12; pts.push(70 + Math.cos(a) * r, 70 + Math.sin(a) * r); }
+  poly(fg, pts);
+  return { img: c, flash: f, sights: buildShotgunSights(), w: 220, h: 150, tipX: 18, tipY: 36, pivotX: 165, pivotY: 110 };
+}
+
+// Down the barrels: two tubes side by side running to a bead at the end.
+// The bead is at (100, 6), the middle of the screen when you aim.
+function buildShotgunSights() {
+  const c = newCanvas(200, 140), g = c.getContext('2d');
+  g.fillStyle = css(28);
+  poly(g, [0, 140, 0, 112, 46, 118, 70, 140]); poly(g, [200, 140, 200, 112, 154, 118, 130, 140]);
+  g.fillStyle = css(76); poly(g, [70, 92, 100, 92, 99, 12, 93, 12]);               // left barrel
+  g.fillStyle = css(64); poly(g, [100, 92, 130, 92, 107, 12, 101, 12]);            // right barrel
+  g.fillStyle = css(150); poly(g, [98, 92, 102, 92, 100.4, 10, 99.6, 10]);         // the rib between them
+  g.fillStyle = css(220); circle(g, 100, 7.5, 1.8);                                // bead
+  g.fillStyle = css(84); poly(g, [64, 88, 136, 88, 142, 112, 58, 112]);            // the action
+  g.fillStyle = css(40); poly(g, [80, 84, 92, 76, 96, 90]); poly(g, [120, 84, 108, 76, 104, 90]); // hammers
+  g.fillStyle = css(52); poly(g, [76, 108, 124, 108, 130, 140, 70, 140]);          // stock
+  g.fillStyle = css(170);
+  poly(g, [40, 112, 76, 104, 86, 122, 80, 140, 46, 140]);                          // left hand
+  poly(g, [160, 112, 124, 104, 114, 122, 120, 140, 154, 140]);                     // right hand
+  return c;
+}
+
 export function buildArt() {
   const people = {};
   for (const name in LOOKS) {
     people[name] = {};
     for (const pose of POSES) people[name][pose] = person(LOOKS[name], pose);
   }
-  return { walls: buildWalls(), floors: buildFloors(), sky: buildSky(), props: buildProps(), people, gun: buildGun() };
+  return { walls: buildWalls(), floors: buildFloors(), sky: buildSky(), props: buildProps(), people, guns: { revolver: buildGun(), shotgun: buildShotgun() } };
 }

@@ -8,7 +8,8 @@
 // very slow push-in, shows its lines and plays its sounds, then cuts.
 //
 // It draws on its own 1280 x 720 canvas (#cine) so the ink lines stay sharp.
-// Click / Enter = next panel, Space / Esc = skip the whole scene.
+// There are two scenes: the opening, and the interrogation at the end of
+// level 1. Click / Enter = next panel, Space / Esc = skip the whole scene.
 
 import * as sfx from './audio.js';
 
@@ -465,40 +466,236 @@ function loading(g) {
   brush(g, [tx + 40, ty - 126, tx + 140, ty - 120, tx + 240, ty - 100], 3, '#5a5a5a');
 }
 
-// 11. He walks out of the door into the rain, revolver in hand.
+// 11. Silhouette: him standing in the open doorway, the rainy street beyond.
+// The revolver hangs at his side, pointing at the ground.
 function doorway(g) {
   g.fillStyle = INK; g.fillRect(0, 0, W, H);
-  // the street outside, bright through the door
-  ink(g, [420, 60, 860, 60, 860, 640, 420, 640], '#9c9993', 3);
-  ink(g, [420, 400, 860, 380, 860, 640, 420, 640], '#bdbab3', 4);           // wet road
-  ink(g, [700, 90, 712, 90, 712, 420, 700, 420], '#3a3a3a', 2);            // lamp post
-  blob(g, 706, 100, 34, 14, PAPER, 2);
-  rain(g, 160, '#3e3e3e', 0.7, 420, 60, 860, 640);
-  // the door swung open
-  ink(g, [860, 60, 960, 20, 960, H, 860, 640], '#1c1c1c', 3);
-  // light spilling in across the floor
-  ink(g, [420, 640, 860, 640, 1060, H, 220, H], '#5a5853', 5);
-  // him, from behind, walking out, revolver in his right hand
-  const man = [560, 640, 585, 520, 598, 420, 584, 330, 590, 272, 615, 258, 632, 250, 650, 250, 668, 258,
-               692, 272, 700, 330, 694, 420, 690, 520, 740, 640, 712, 642, 660, 520, 642, 470,
-               620, 520, 590, 642];
-  ink(g, man, INK, 2);
-  blob(g, 641, 222, 26, 31, INK, 2);                                         // head
-  ink(g, [628, 245, 654, 245, 656, 262, 626, 262], INK, 1);                  // neck
-  ink(g, [690, 272, 725, 370, 728, 412, 710, 408, 696, 340], INK, 2);       // right arm
-  drawGun(g, 740, 420, 0.32, 1.35);
-  // his long shadow stretching back towards you
-  ink(g, [560, 642, 740, 642, 900, H, 380, H], INK, 4);
+  // the street outside: cold, bright, misty with rain
+  const sky = g.createLinearGradient(0, 70, 0, 640);
+  sky.addColorStop(0, '#d9d6cf'); sky.addColorStop(0.6, '#bdbab3'); sky.addColorStop(1, '#9c9993');
+  ink(g, [440, 70, 840, 70, 840, 640, 440, 640], sky, 2);
+  ink(g, [520, 140, 528, 140, 528, 470, 520, 470], '#8a8781', 1);          // a lamp post across the street
+  ink(g, [500, 132, 548, 132, 544, 142, 504, 142], '#8a8781', 1);
+  ink(g, [440, 470, 840, 455, 840, 640, 440, 640], '#aeaba4', 3);          // wet pavement
+  rain(g, 150, '#6e6c67', 0.6, 440, 70, 840, 640);
+  // the door frame and the open door, all in black
+  ink(g, [420, 50, 860, 50, 860, 70, 420, 70], INK, 1);
+  ink(g, [840, 70, 930, 30, 930, H, 840, 640], INK, 3);
+  // him: one solid black shape
+  blob(g, 640, 205, 30, 35, INK, 1.5);                                       // head
+  ink(g, [626, 232, 654, 232, 656, 262, 624, 262], INK, 1);                  // neck
+  ink(g, [565, 272, 592, 256, 688, 256, 715, 272, 712, 330, 700, 430, 696, 452,
+          724, 640, 670, 640, 640, 482, 610, 640, 556, 640, 584, 452, 580, 430, 568, 330], INK, 1.5);
+  ink(g, [565, 272, 548, 332, 546, 420, 552, 446, 568, 444, 572, 412, 580, 332], INK, 1);   // left arm, hanging
+  ink(g, [715, 272, 736, 332, 750, 414, 750, 444, 734, 444, 726, 412, 704, 332], INK, 1);   // right arm
+  // the revolver in his right hand, barrel down: grip, cylinder, barrel, all black
+  ink(g, [734, 432, 756, 432, 760, 462, 738, 466], INK, 1);
+  ink(g, [740, 458, 764, 458, 764, 490, 738, 490], INK, 1);
+  ink(g, [744, 488, 756, 488, 756, 566, 746, 566], INK, 1);
+  ink(g, [756, 446, 768, 440, 768, 452], INK, 0.5);                          // hammer
+  // his shadow, long across the floor towards you
+  ink(g, [556, 640, 724, 640, 940, H, 340, H], INK, 3);
+  // the doorway light spilling either side of the shadow
+  ink(g, [440, 640, 556, 640, 340, H, 160, H], '#4a4845', 4);
+  ink(g, [724, 640, 840, 640, 1120, H, 940, H], '#4a4845', 4);
 }
 
 // =========================================================================
-// Playing the panels
+// The interrogation, at the top of the Dellwood
 // =========================================================================
+
+// The lieutenant, slumped against the wall, his shotgun out of reach.
+function ltSlumped(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  ink(g, [0, 0, W, 0, W, 470, 0, 470], '#262626', 3);                     // wall
+  for (let i = 0; i < 14; i++) line(g, i * 96, 0, i * 96 + 2, 470, 2, '#1a1a1a');
+  g.save(); g.globalAlpha = 0.12;                                          // blind stripes
+  for (let i = 0; i < 6; i++) ink(g, [0, 40 + i * 60, W, i * 60 - 120, W, i * 60 - 96, 0, 64 + i * 60], PAPER, 2);
+  g.restore();
+  ink(g, [0, 470, W, 470, W, H, 0, H], '#151515', 4);                      // floor
+  // where he slid down the wall
+  brush(g, [690, 200, 676, 270, 664, 340], 24, 'rgba(140,12,10,0.7)');
+  // legs out in front of him
+  ink(g, [500, 500, 560, 500, 470, 720, 390, 720], '#1c1c1c', 3);
+  ink(g, [575, 500, 635, 500, 715, 720, 630, 720], '#1c1c1c', 3);
+  // body: white shirt, black waistcoat, blood
+  ink(g, [468, 336, 652, 336, 632, 506, 488, 506], INK, 3);
+  ink(g, [532, 336, 592, 336, 562, 450], '#d6d3cc', 2);
+  ink(g, [556, 340, 568, 340, 566, 420, 558, 420], '#1a1a1a', 1);
+  blob(g, 606, 430, 30, 24, RED, 3);
+  brush(g, [606, 440, 610, 480, 604, 510], 6, RED);
+  // arms, limp
+  ink(g, [468, 342, 440, 440, 420, 540, 446, 546, 470, 450, 490, 360], INK, 2);
+  blob(g, 432, 552, 18, 13, '#9e9b94', 2);
+  ink(g, [652, 342, 690, 450, 704, 540, 680, 546, 662, 450, 630, 360], INK, 2);
+  blob(g, 694, 552, 18, 13, '#9e9b94', 2);
+  // head, dropped to one side
+  blob(g, 580, 282, 40, 48, '#a8a59e', 3, 0.25);
+  ink(g, [540, 262, 560, 232, 610, 236, 624, 260, 600, 252, 560, 262], INK, 2);   // slicked hair
+  brush(g, [566, 282, 584, 286], 3); brush(g, [598, 292, 612, 296], 3);           // eyes, half shut
+  brush(g, [578, 316, 598, 320], 2);
+  brush(g, [596, 320, 600, 340], 3, RED);
+  // his shotgun, on the floor, out of reach
+  ink(g, [820, 610, 1180, 560, 1184, 572, 824, 624], INK, 2);
+  ink(g, [818, 600, 1150, 552, 1152, 560, 820, 610], '#3a3a3a', 1);
+  ink(g, [1150, 556, 1260, 540, 1270, 580, 1170, 600], '#3a2a20', 3);
+  // a shadow falls across him: someone standing over him
+  ink(g, [0, H, 0, 420, 150, 380, 300, H], 'rgba(0,0,0,0.8)', 4);
+}
+
+// Close on the lieutenant's face. He's talking now.
+function ltFace(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  const lamp = g.createRadialGradient(560, 300, 20, 560, 300, 520);
+  lamp.addColorStop(0, 'rgba(230,227,220,0.12)'); lamp.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = lamp; g.fillRect(0, 0, W, H);
+  const head = [430, 160, 520, 90, 660, 90, 770, 170, 800, 300, 790, 440, 740, 560, 650, 640, 560, 650, 480, 590, 430, 470, 410, 320];
+  ink(g, head, '#aeaba4', 4);
+  hatch(g, [620, 80, 820, 80, 820, 660, 620, 660], 9, 1.2, 1.6, '#2a2a2a');    // shadow side
+  ink(g, [420, 200, 440, 120, 540, 70, 680, 70, 790, 140, 800, 220, 720, 160, 600, 150, 500, 170], INK, 3); // slicked hair
+  // eyes looking up at the man standing over him
+  for (const cx of [530, 690]) {
+    ink(g, [cx - 52, 318, cx - 16, 302, cx + 24, 302, cx + 52, 316, cx + 20, 332, cx - 22, 332], '#e4e1da', 1);
+    blob(g, cx, 308, 12, 10, '#2a2a2a', 0.5);
+    blob(g, cx, 308, 5, 5, INK, 0.3);
+    brush(g, [cx - 58, 312, cx - 20, 298, cx + 24, 298, cx + 58, 310], 6);
+  }
+  brush(g, [470, 268, 520, 256, 580, 266], 9);                              // brows, drawn together
+  brush(g, [640, 266, 700, 256, 750, 268], 9);
+  brush(g, [600, 330, 590, 440, 620, 452], 4, '#4a4a4a');                   // nose
+  ink(g, [540, 510, 640, 506, 650, 528, 548, 534], '#3a3a3a', 2);           // mouth, open a little
+  brush(g, [636, 520, 642, 560, 640, 610], 5, RED);                         // split lip, bleeding
+  brush(g, [470, 190, 500, 230], 5, RED);                                   // cut on his forehead
+  g.fillStyle = '#e8e5de';                                                  // sweat
+  for (const [x, y] of [[480, 240], [560, 220], [720, 250], [500, 420]]) { g.beginPath(); g.ellipse(x, y, 3, 5, 0, 0, 7); g.fill(); }
+}
+
+// From where he sits: the man standing over him, the lamp behind his head.
+function overHim(g) {
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#3a3936'); bg.addColorStop(1, '#0b0b0b');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const glow = g.createRadialGradient(790, 110, 6, 790, 110, 240);
+  glow.addColorStop(0, 'rgba(240,238,232,0.9)'); glow.addColorStop(0.15, 'rgba(240,238,232,0.35)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  // him, huge and black, from below
+  const man = [360, H, 410, 520, 450, 330, 500, 290, 590, 270, 600, 230, 690, 230, 700, 270, 790, 290,
+               840, 330, 880, 520, 930, H];
+  g.save(); g.translate(-4, -3); ink(g, man, '#8a8781', 2); g.restore();   // thin rim of lamplight
+  ink(g, man, INK, 2);
+  blob(g, 645, 170, 62, 76, INK, 2);                                       // head
+  ink(g, [840, 330, 900, 480, 930, 600, 900, 610, 870, 500, 820, 380], INK, 2);   // his arm, hanging
+  // the revolver in his hand, pointing down at you
+  ink(g, [896, 600, 930, 596, 936, 640, 900, 646], INK, 1);
+  ink(g, [890, 636, 918, 640, 900, 720, 872, 716], INK, 1);
+}
+
+// The muzzle against the lieutenant's forehead. Neither of them moves.
+function muzzle(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  const top = g.createLinearGradient(0, 0, 0, H);
+  top.addColorStop(0, 'rgba(230,227,220,0.14)'); top.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = top; g.fillRect(0, 0, W, H);
+  // his head in profile, facing the gun, in shadow
+  const head = [140, 200, 230, 130, 340, 140, 410, 210, 428, 280, 440, 320, 424, 352, 432, 380, 410, 420, 396, 470, 340, 520, 260, 540, 180, 500, 130, 400, 120, 290];
+  ink(g, head, '#1c1c1c', 2);
+  brush(g, [230, 132, 340, 142, 410, 210, 428, 282, 440, 320], 4, '#8a8781');   // light along his brow
+  brush(g, [380, 300, 404, 304], 3, '#6a6a6a');                                 // eye, closed
+  ink(g, [130, 250, 170, 140, 270, 110, 360, 130, 300, 150, 220, 180], INK, 2); // hair
+  // the revolver, its muzzle pressed to his forehead
+  drawGun(g, 442 + 210 * 1.5, 262 + 11 * 1.5, 1.5, 0);
+  // the hand holding it, steady
+  blob(g, 1110, 440, 70, 58, '#a8a59e', 4, 0.4);
+  g.strokeStyle = INK; g.lineWidth = 4;
+  for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(1070 + k * 24, 418 + k * 22, 20, 2.6, 4.6); g.stroke(); }
+  ink(g, [1140, 470, 1220, 470, W, 500, W, H, 1150, H], INK, 3);
+}
+
+// Black. One shot.
+function blackout(g) { g.fillStyle = INK; g.fillRect(0, 0, W, H); }
+
+// After: the wall, the spray of red, his hand. Picking up the shotgun.
+function aftermath(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  ink(g, [0, 0, W, 0, W, 470, 0, 470], '#262626', 3);
+  for (let i = 0; i < 14; i++) line(g, i * 96, 0, i * 96 + 2, 470, 2, '#1a1a1a');
+  // the spray on the wall
+  g.fillStyle = RED;
+  for (let i = 0; i < 90; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.pow(rnd(), 1.6) * 170;
+    g.beginPath(); g.arc(560 + Math.cos(a) * r * 1.3, 250 + Math.sin(a) * r * 0.8, 2 + rnd() * 9 * (1 - r / 200), 0, 7); g.fill();
+  }
+  blob(g, 560, 260, 46, 34, DARKRED, 6);
+  for (let i = 0; i < 6; i++) brush(g, [520 + i * 16, 270, 520 + i * 16 + rnd() * 6, 330 + rnd() * 120], 4, DARKRED);
+  ink(g, [0, 470, W, 470, W, H, 0, H], '#151515', 4);
+  // his hand, still, at the edge of the picture
+  blob(g, 260, 560, 40, 22, '#8e8b84', 3, 0.2);
+  ink(g, [0, 520, 230, 540, 240, 580, 0, 600], INK, 2);
+  // the shotgun, and a hand picking it up
+  ink(g, [380, 650, 860, 560, 864, 574, 384, 664], INK, 2);
+  ink(g, [378, 640, 840, 552, 842, 560, 380, 650], '#3a3a3a', 1);
+  ink(g, [850, 556, 990, 528, 1004, 580, 870, 606], '#3a2a20', 3);
+  blob(g, 900, 560, 64, 44, '#b9b6af', 4, -0.3);
+  g.strokeStyle = INK; g.lineWidth = 4;
+  for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(870 + k * 26, 574 - k * 6, 18, 3.4, 5.8); g.stroke(); }
+  ink(g, [930, 520, 1100, 380, W, 380, W, 520, 980, 590], INK, 3);         // his sleeve
+}
+
+// Breaking it open. Two red shells.
+function breakOpen(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  const glow = g.createRadialGradient(640, 360, 20, 640, 360, 520);
+  glow.addColorStop(0, 'rgba(230,227,220,0.13)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  // the barrels, hinged down, seen from the breech end
+  ink(g, [380, 330, 640, 300, 640, 470, 380, 520], '#2a2a2a', 3);
+  ink(g, [380, 330, 120, 420, 120, 560, 380, 520], '#1a1a1a', 3);
+  blob(g, 470, 380, 52, 56, '#0a0a0a', 2);                                  // two open chambers
+  blob(g, 580, 368, 52, 56, '#0a0a0a', 2);
+  blob(g, 580, 368, 46, 50, '#a8916a', 2);                                  // one shell already in: brass
+  blob(g, 580, 368, 12, 12, '#5a5a5a', 1);
+  // the stock and the hinge, going off to the right
+  ink(g, [640, 300, 760, 290, 1180, 420, W, 560, W, 700, 1100, 620, 760, 470, 640, 470], '#3a2a20', 4);
+  hatch(g, [800, 360, 1160, 470, 1180, 560, 820, 450], 10, 0.4, 1.4, '#1f1712');
+  ink(g, [640, 300, 700, 296, 700, 470, 640, 470], '#4a4a4a', 2);           // the hinge
+  // the second shell, red, going in
+  g.save(); g.translate(470, 380); g.rotate(-0.35);
+  ink(g, [-40, -40, 40, -40, 40, -230, -40, -230], RED, 2);
+  ink(g, [-44, -36, 44, -36, 44, 0, -44, 0], '#a8916a', 2);
+  brush(g, [-20, -60, -20, -210], 6, '#d8403a');
+  g.restore();
+  // fingers holding it
+  ink(g, [520, 120, 720, 40, W, 40, W, 240, 760, 230, 560, 220], '#b9b6af', 5);
+  brush(g, [560, 150, 700, 120, 860, 120], 3, '#5a5a5a');
+  brush(g, [560, 190, 720, 170, 880, 170], 3, '#5a5a5a');
+}
+
+// =========================================================================
+// The scenes, and playing them
+// =========================================================================
+
+// The interrogation, after you put the lieutenant down at the top of the Dellwood.
+const INTERROGATION = [
+  { draw: ltSlumped, dur: 4.2, lines: [[1.2, 'you', 'Where is she?']] },
+  { draw: ltFace, dur: 8.2,
+    lines: [[0.5, 'lt', 'The docks. Pier Nine. The boss keeps her in the warehouse.'], [4.6, 'lt', "You'll never get near her, old man."]] },
+  { draw: overHim, dur: 5.0, lines: [[0.8, 'you', "Then they'd better be quicker than you were."]] },
+  { draw: muzzle, dur: 3.0, sfx: [[1.6, sfx.click]] },
+  { draw: blackout, dur: 2.0, sfx: [[0.3, sfx.revolver]] },
+  { draw: aftermath, dur: 3.6, sfx: [[1.4, sfx.clang]] },
+  { draw: breakOpen, dur: 4.8, fadeOut: 1.6, lines: [[1.2, 'you', 'Pier Nine.']],
+    sfx: [[0.3, sfx.breakOpen], [1.6, sfx.insert], [3.0, sfx.snapShut]] },
+];
+
+const SCENES = { opening: PANELS, interrogation: INTERROGATION };
+const SPEAKERS = { you: 'YOU', voice: 'VOICE ON THE PHONE', lt: 'VIPERS LIEUTENANT' };
+
 export class Cutscene {
-  constructor(_gameCanvas, onEnd) {
+  constructor() {
     this.canvas = document.getElementById('cine');
     this.g = this.canvas.getContext('2d');
-    this.onEnd = onEnd;
+    this.panels = PANELS;
+    this.onEnd = null;
     this.panel = 0;           // which panel is showing
     this.t = 0;               // how long it has been showing
     this.played = 0;          // how many of its sounds have played
@@ -517,7 +714,10 @@ export class Cutscene {
     gg.putImageData(img, 0, 0);
   }
 
-  start() {
+  // play a scene by name ('opening' or 'interrogation'); onEnd runs when it's over
+  play(name, onEnd) {
+    this.panels = SCENES[name];
+    this.onEnd = onEnd;
     this.done = false;
     this.canvas.hidden = false;
     this.skipEl.hidden = false;
@@ -526,7 +726,7 @@ export class Cutscene {
 
   // put panel i on screen (handy for testing: game.cutscene.show(5))
   show(i) {
-    if (i >= PANELS.length) { this.finish(); return; }
+    if (i >= this.panels.length) { this.finish(); return; }
     this.panel = i;
     this.t = 0;
     this.played = 0;
@@ -535,7 +735,7 @@ export class Cutscene {
   update(dt) {
     if (this.done) return;
     this.t += dt;
-    const p = PANELS[this.panel], cues = p.sfx || [];
+    const p = this.panels[this.panel], cues = p.sfx || [];
     while (this.played < cues.length && cues[this.played][0] <= this.t) cues[this.played++][1]();
     if (this.t >= p.dur) this.show(this.panel + 1);
   }
@@ -549,7 +749,9 @@ export class Cutscene {
     this.skipEl.hidden = true;
     this.showLine(null);
     sfx.setRain(false);
-    this.onEnd();
+    const then = this.onEnd;
+    this.onEnd = null;
+    if (then) then();
   }
 
   showLine(l) {
@@ -559,7 +761,7 @@ export class Cutscene {
     const [, who, text] = l;
     this.subs.hidden = false;
     this.subs.className = who || 'caption';
-    const name = who === 'you' ? 'YOU' : who === 'voice' ? 'VOICE ON THE PHONE' : '';
+    const name = SPEAKERS[who] || '';
     this.subs.innerHTML = (name ? `<b>${name}</b>` : '') + `<span>${text}</span>`;
   }
 
@@ -568,17 +770,17 @@ export class Cutscene {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     if (this.done) return;
-    const p = PANELS[this.panel];
+    const p = this.panels[this.panel];
     let current = null;
     for (const l of p.lines || []) if (this.t >= l[0]) current = l;
     this.showLine(current);
-    if (this.t < CUT) return;                                   // the blink between panels
-    // slow push in, and a jolt on impacts
+    if (this.t < CUT) return;                                   // the beat of black between panels
+    // very slow push in, and a jolt on impacts
     const k = Math.min(1, this.t / p.dur), z = 1 + PUSH * k;
     g.save();
     g.translate(W / 2, H / 2); g.scale(z, z); g.translate(-W / 2, -H / 2);
     if (p.shake && this.t > p.shake && this.t < p.shake + 0.35) g.translate((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 12);
-    seed = (this.panel + 1) * 7919;
+    seed = (this.panels.indexOf(p) + 1) * 7919 + (this.panels === PANELS ? 0 : 131);
     p.draw(g);
     g.restore();
     // paper grain, dark corners, and a heavy black border like a comic panel

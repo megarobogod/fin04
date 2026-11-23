@@ -98,8 +98,9 @@ export class Renderer {
     const rx0 = dirX - plX, ry0 = dirY - plY, rx1 = dirX + plX, ry1 = dirY + plY;
     const posZ = 0.5 * F;
     const floorTex = world.floorTex, ceilTex = world.ceilTex;
-    // Rows below the horizon are floor. Rows above it are ceiling indoors
-    // (outdoors they're sky, already drawn).
+    // Rows below the horizon are floor. Rows above it are ceiling where there is
+    // a roof; where there is no roof (outdoors) the sky drawn above shows through.
+    const sky = level.outdoor;
     const firstRow = ceilTex ? 0 : Math.max(0, horizon + 1);
     for (let y = firstRow; y < H; y++) {
       const row = y * W;
@@ -108,13 +109,13 @@ export class Renderer {
       const tex = isFloor ? floorTex : ceilTex;
       const rowDist = posZ / Math.abs(y - horizon);
       const fogv = fogAt(rowDist, fog) * (isFloor ? 256 : 205);
-      if (fogv <= 0) { buf.fill(0xFF000000, row, row + W); continue; }
+      if (fogv <= 0) { if (isFloor || !sky) buf.fill(0xFF000000, row, row + W); continue; }
       const stepX = (rowDist * (rx1 - rx0)) / W, stepY = (rowDist * (ry1 - ry0)) / W;
       let fx = cam.x + rowDist * rx0, fy = cam.y + rowDist * ry0;
       for (let x = 0; x < W; x++, fx += stepX, fy += stepY) {
         const cx = Math.floor(fx), cy = Math.floor(fy);
         const t = cx < 0 || cy < 0 || cx >= wmap || cy >= hmap ? null : tex[cy * wmap + cx];
-        if (!t) { buf[row + x] = 0xFF000000; continue; }
+        if (!t) { if (isFloor || !sky) buf[row + x] = 0xFF000000; continue; }
         const ti = (((fy - cy) * T) | 0) * T + (((fx - cx) * T) | 0);
         buf[row + x] = shade(t.data[ti], (world.lightAt(fx, fy) * fogv) | 0);
       }
@@ -129,20 +130,27 @@ export class Renderer {
       const sx = rdx < 0 ? -1 : 1, sy = rdy < 0 ? -1 : 1;
       let tx = rdx < 0 ? (cam.x - mx) * ddx : (mx + 1 - cam.x) * ddx;
       let ty = rdy < 0 ? (cam.y - my) * ddy : (my + 1 - cam.y) * ddy;
-      let side = 0, hit = false, steps = 0;
+      let side = 0, hit = false, steps = 0, door = null;
       while (steps++ < 96) {
         if (tx < ty) { tx += ddx; mx += sx; side = 0; } else { ty += ddy; my += sy; side = 1; }
         if (mx < 0 || my < 0 || mx >= wmap || my >= hmap) break;
-        if (world.solid[my * wmap + mx]) { hit = true; break; }
+        const ci = my * wmap + mx;
+        if (world.solid[ci]) { hit = true; break; }
+        // a sliding door sits across the middle of its square
+        if (world.doorIdx[ci] >= 0 && (door = world.doorHit(ci, cam.x, cam.y, rdx, rdy))) { hit = true; side = door.side; break; }
       }
-      const dist = Math.max(0.0001, side === 0 ? tx - ddx : ty - ddy);
+      const dist = Math.max(0.0001, door ? door.dist : side === 0 ? tx - ddx : ty - ddy);
       zbuf[x] = hit ? dist : 1e9;
       if (!hit) continue;
       const tex = world.wallTex[my * wmap + mx];
-      let wx = side === 0 ? cam.y + dist * rdy : cam.x + dist * rdx;
-      wx -= Math.floor(wx);
-      let texX = (wx * T) | 0;
-      if ((side === 0 && rdx < 0) || (side === 1 && rdy > 0)) texX = T - 1 - texX;
+      let texX;
+      if (door) texX = Math.min(T - 1, (door.u * T) | 0);
+      else {
+        let wx = side === 0 ? cam.y + dist * rdy : cam.x + dist * rdx;
+        wx -= Math.floor(wx);
+        texX = (wx * T) | 0;
+        if ((side === 0 && rdx < 0) || (side === 1 && rdy > 0)) texX = T - 1 - texX;
+      }
       // light just in front of the wall face
       const hx = cam.x + rdx * (dist - 0.03), hy = cam.y + rdy * (dist - 0.03);
       const s = (world.lightAt(hx, hy) * fogAt(dist, fog) * (side ? 200 : 256)) | 0;
@@ -193,7 +201,7 @@ export class Renderer {
     }
 
     // ---- rain ----
-    if (level.rain) this.drawRain(dt, cam.angle);
+    if (level.rain && !world.indoors(cam.x, cam.y)) this.drawRain(dt, cam.angle);
     this.lastAngle = cam.angle;
 
     // ---- film grain, dark corners and red when hurt ----
@@ -221,8 +229,8 @@ export class Renderer {
 
     if (game.state !== 'dead') {
       // Raising the gun: first the hip gun drops away, then the sights come up.
-      const ads = game.player.ads || 0;
-      if (ads < 0.5) this.drawGun(game, Math.min(1, ads * 2));
+      const p0 = game.player, ads = p0.ads || 0;
+      if (ads < 0.5) this.drawGun(game, Math.min(1, ads * 2 + p0.switchPose));
       else this.drawSights(game, ads * 2 - 1);
       if (ads < 0.3) this.drawCrosshair();
     }
@@ -252,7 +260,7 @@ export class Renderer {
 
   // The revolver held at the hip. `lower` (0..1) drops it out of view.
   drawGun(game, lower = 0) {
-    const p = game.player, gun = this.art.gun, ctx = this.ctx;
+    const p = game.player, gun = this.art.guns[p.weapon], ctx = this.ctx;
     const { W, H } = this;
     const bx = Math.sin(p.bobPhase) * 5 * p.bobAmt;
     const by = Math.abs(Math.cos(p.bobPhase)) * 5 * p.bobAmt;
@@ -274,7 +282,7 @@ export class Renderer {
   // When fully up, the tip of the front sight sits exactly on the middle of
   // the screen, which is where the bullet goes.
   drawSights(game, raise) {
-    const p = game.player, gun = this.art.gun, ctx = this.ctx;
+    const p = game.player, gun = this.art.guns[p.weapon], ctx = this.ctx;
     const s = gun.sights;
     const sway = Math.sin(p.bobPhase) * 2 * p.bobAmt;
     const x = this.W / 2 - 100 + sway;
