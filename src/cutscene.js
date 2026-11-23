@@ -1,9 +1,11 @@
 // cutscene.js - the opening scene, told as inked comic panels.
 //
 // Each PANEL is a still picture drawn in code in a stark ink style: solid
-// black shadows, harsh white light, rough hand-drawn edges, and red used
-// for drama. A panel holds on screen for a few seconds with a slow push-in,
-// shows its lines of dialogue and plays its sounds, then cuts to the next.
+// black shadows, cold white light, rough hand-drawn edges, and only a touch
+// of red. The mood is quiet and cold, not loud: lots of black and empty
+// space, no shouting faces, no sound-effect lettering. The threat is in what
+// is said and in how calm he stays. A panel holds for a few seconds with a
+// very slow push-in, shows its lines and plays its sounds, then cuts.
 //
 // It draws on its own 1280 x 720 canvas (#cine) so the ink lines stay sharp.
 // Click / Enter = next panel, Space / Esc = skip the whole scene.
@@ -11,8 +13,8 @@
 import * as sfx from './audio.js';
 
 const W = 1280, H = 720;
-const CUT = 0.08;              // a blink of black between panels
-const PUSH = 0.05;             // how much each panel slowly zooms in
+const CUT = 0.22;              // a beat of black between panels
+const PUSH = 0.03;             // how much each panel slowly zooms in
 
 // ---- colours: ink, paper, two greys, and red ----
 const INK = '#0b0b0b', PAPER = '#e6e3dc', LIGHT = '#a3a19c';
@@ -24,25 +26,25 @@ const RED = '#b3120f', DARKRED = '#5e0605';
 // sfx:   [seconds into the panel, sound]
 // draw:  the function below that paints it
 const PANELS = [
-  { draw: city, dur: 4.2, lines: [[0.4, '', 'The old neighbourhood. 2 a.m.']],
+  { draw: city, dur: 4.6, lines: [[0.5, '', 'The old neighbourhood. 2 a.m.']],
     sfx: [[0, () => sfx.setRain(true, 0.05)]] },
-  { draw: phone, dur: 2.8, sfx: [[0, sfx.phoneRing], [1.3, sfx.phoneRing]] },
-  { draw: silhouette, dur: 7.4,
-    lines: [[0.3, 'you', 'Yeah.'], [1.9, 'voice', "Been a long time. You remember me? 'Course you do."]],
-    sfx: [[0, sfx.phoneFlip], [1.9, () => sfx.phoneVoice(3.2)]] },
-  { draw: photo, dur: 3.8, lines: [[0.2, 'voice', "I've got your wife. She's right here with me."]],
-    sfx: [[0.2, () => sfx.phoneVoice(2.8)]] },
-  { draw: eyes, dur: 5.2, lines: [[0.2, 'voice', "You're doing one last job for the Vipers. Say no, and she pays for it. Slowly."]],
-    sfx: [[0.2, () => sfx.phoneVoice(4.3)]] },
-  { draw: profile, dur: 7.0,
-    lines: [[0.2, 'you', 'Listen to me very carefully.'], [2.9, 'you', "I'm going to find you. Then every last one of your Vipers."]] },
-  { draw: lightning, dur: 4.4, lines: [[0.2, 'you', "And when I'm done, there won't be enough of you left to bury."]],
-    sfx: [[0, sfx.thunder], [3.9, sfx.phoneFlip]] },
-  { draw: crowbar, dur: 2.6, shake: 1.15, sfx: [[0.1, sfx.creak], [1.1, sfx.crack], [1.5, sfx.crash]] },
-  { draw: stash, dur: 3.6, sfx: [[0.9, sfx.clang]] },
-  { draw: revolver, dur: 2.8, sfx: [[0.2, sfx.click], [0.8, sfx.spin]] },
-  { draw: doorway, dur: 4.4, fadeOut: 1.4,
-    sfx: [[0, sfx.doorCreak], [0.1, () => sfx.setRain(true, 0.14)], [1.2, sfx.step], [1.7, sfx.step], [2.2, sfx.step], [2.7, sfx.step]] },
+  { draw: phone, dur: 3.4, sfx: [[0.2, sfx.phoneRing], [1.7, sfx.phoneRing]] },
+  { draw: silhouette, dur: 7.6,
+    lines: [[0.4, 'you', 'Yeah.'], [2.1, 'voice', "Been a long time. You remember me? 'Course you do."]],
+    sfx: [[0, sfx.phoneFlip], [2.1, () => sfx.phoneVoice(3.2)]] },
+  { draw: photo, dur: 4.4, lines: [[0.3, 'voice', "I've got your wife. She's right here with me."]],
+    sfx: [[0.3, () => sfx.phoneVoice(2.8)]] },
+  { draw: coat, dur: 6.0, lines: [[0.4, 'voice', "You're doing one last job for the Vipers. Say no, and she pays for it. Slowly."]],
+    sfx: [[0.4, () => sfx.phoneVoice(4.3)]] },
+  { draw: shadowFace, dur: 8.0,
+    lines: [[1.0, 'you', 'Listen to me very carefully.'], [3.8, 'you', "I'm going to find you. Then every last one of your Vipers."]] },
+  { draw: smallInDark, dur: 5.6, lines: [[0.4, 'you', "And when I'm done, there won't be enough of you left to bury."]],
+    sfx: [[4.9, sfx.phoneFlip]] },
+  { draw: crowbar, dur: 3.4, sfx: [[0.3, sfx.creak], [1.7, sfx.crack], [2.1, sfx.crash]] },
+  { draw: stash, dur: 4.2, sfx: [[1.0, sfx.clang]] },
+  { draw: loading, dur: 3.6, sfx: [[1.1, sfx.insert], [2.6, sfx.cylinderClose]] },
+  { draw: doorway, dur: 4.8, fadeOut: 1.6,
+    sfx: [[0, sfx.doorCreak], [0.1, () => sfx.setRain(true, 0.14)], [1.4, sfx.step], [1.9, sfx.step], [2.4, sfx.step], [2.9, sfx.step]] },
 ];
 
 // =========================================================================
@@ -127,14 +129,6 @@ function rain(g, n, color, alpha = 0.55, x0 = 0, y0 = 0, x1 = W, y1 = H) {
   }
   g.restore();
 }
-// rays bursting out from a point (comic "action" background)
-function burst(g, x, y, rays, c1, c2) {
-  g.fillStyle = c1; g.fillRect(0, 0, W, H);
-  for (let i = 0; i < rays; i++) {
-    const a0 = (i / rays) * Math.PI * 2, a1 = a0 + (Math.PI / rays) * (0.5 + rnd() * 0.6);
-    flat(g, [x, y, x + Math.cos(a0) * 2000, y + Math.sin(a0) * 2000, x + Math.cos(a1) * 2000, y + Math.sin(a1) * 2000], c2);
-  }
-}
 // comic lettering, e.g. a sound effect
 function letters(g, text, x, y, size, rot, fill, outline = INK, shadow = null) {
   g.save(); g.translate(x, y); g.rotate(rot);
@@ -185,40 +179,38 @@ function city(g) {
   // fire escape
   for (let y = 230; y < 700; y += 85) { line(g, 740, y, 820, y, 4, '#4a4a4a'); line(g, 745, y, 815, y + 85, 3, '#4a4a4a'); }
   // red neon sign down the side of the building
-  g.save(); g.shadowColor = RED; g.shadowBlur = 30;
+  g.save(); g.shadowColor = RED; g.shadowBlur = 12;
   ink(g, [330, 180, 372, 180, 372, 470, 330, 470], DARKRED, 2);
-  g.font = "900 42px Impact, 'Arial Black', sans-serif"; g.textAlign = 'center'; g.fillStyle = '#ff2a22';
+  g.font = "900 42px Impact, 'Arial Black', sans-serif"; g.textAlign = 'center'; g.fillStyle = '#c8211b';
   'ROOMS'.split('').forEach((ch, i) => g.fillText(ch, 351, 228 + i * 54));
   g.restore();
   rain(g, 260, PAPER, 0.45);
 }
 
-// 2. Close-up: the flip phone buzzing on the bedside table.
+// 2. Close-up: the flip phone on the bedside table, its little screen lit in the dark.
 function phone(g) {
   g.fillStyle = INK; g.fillRect(0, 0, W, H);
-  ink(g, [0, 430, W, 380, W, H, 0, H], '#8a8781', 6);                     // table top
-  for (let i = 0; i < 9; i++) brush(g, [0, 470 + i * 30, 400, 455 + i * 29 + rnd() * 10, 900, 440 + i * 29, W, 420 + i * 28], 2.5, '#5c5a56');
-  // bottle and ashtray, dark against the wall
-  ink(g, [150, 420, 150, 230, 175, 190, 175, 120, 205, 120, 205, 190, 230, 230, 230, 420]);
-  line(g, 172, 240, 172, 400, 6, '#3a3a3a');
-  blob(g, 1080, 440, 120, 30, '#2c2c2c', 4);
-  blob(g, 1080, 432, 90, 18, '#55534f', 3);
-  ink(g, [1040, 428, 1140, 420, 1142, 430, 1042, 438], PAPER, 1);          // cigarette
-  brush(g, [1140, 420, 1160, 360, 1130, 300, 1170, 230, 1140, 160], 5, 'rgba(230,227,220,0.5)');
-  // the phone, lying at an angle, with its little screen lit
-  g.save(); g.translate(640, 470); g.rotate(-0.18);
-  ink(g, [-230, -70, 230, -70, 240, 60, -240, 60], INK, 4);
-  ink(g, [-225, -66, 228, -66, 228, -54, -225, -54], '#4a4a4a', 2);        // edge highlight
-  line(g, 0, -70, 0, 60, 4, '#3a3a3a');                                    // the hinge
-  ink(g, [60, -40, 190, -40, 190, 30, 60, 30], PAPER, 2);                  // outer screen
+  ink(g, [0, 470, W, 430, W, H, 0, H], '#3a3936', 6);                     // table top, barely lit
+  for (let i = 0; i < 7; i++) brush(g, [0, 500 + i * 30, 500, 488 + i * 29, W, 462 + i * 28], 2, '#2a2927');
+  // the glow of the screen on the wood
+  const glow = g.createRadialGradient(700, 470, 10, 700, 470, 360);
+  glow.addColorStop(0, 'rgba(230,227,220,0.32)'); glow.addColorStop(1, 'rgba(230,227,220,0)');
+  g.fillStyle = glow; g.fillRect(300, 250, 800, 470);
+  // ashtray, one cigarette burnt down, a thin thread of smoke
+  blob(g, 1060, 500, 110, 26, '#1a1a1a', 4);
+  ink(g, [1020, 492, 1100, 486, 1102, 494, 1022, 500], '#8a8781', 1);
+  brush(g, [1100, 486, 1112, 420, 1094, 360, 1116, 290, 1098, 220], 3, 'rgba(230,227,220,0.35)');
+  // the phone
+  g.save(); g.translate(640, 500); g.rotate(-0.1);
+  ink(g, [-230, -64, 230, -64, 238, 56, -238, 56], '#121212', 4);
+  ink(g, [-225, -60, 228, -60, 228, -52, -225, -52], '#3a3a3a', 2);        // edge catching the light
+  line(g, 0, -64, 0, 56, 3, '#262626');                                    // the hinge
+  ink(g, [60, -38, 190, -38, 190, 26, 60, 26], PAPER, 2);                  // outer screen
   g.fillStyle = INK; g.font = "bold 26px 'Courier New', monospace"; g.fillText('UNKNOWN', 66, 0);
-  ink(g, [-260, -40, -230, -40, -230, -20, -260, -20], INK, 1);            // antenna stub
   g.restore();
-  // buzz marks
-  for (const [x, y, s] of [[380, 360, -1], [900, 330, 1], [360, 520, -1], [920, 470, 1]]) {
-    for (let k = 0; k < 3; k++) brush(g, [x + s * k * 22, y - 30, x + s * (k * 22 + 10), y, x + s * k * 22, y + 30], 5, PAPER);
-  }
-  letters(g, 'BRRRING', 640, 170, 150, -0.08, PAPER, INK, RED);
+  // two small buzz marks, nothing more
+  brush(g, [395, 470, 384, 500, 395, 530], 3, '#8a8781');
+  brush(g, [890, 446, 901, 476, 890, 506], 3, '#8a8781');
 }
 
 // 3. Him on the edge of the bed, black against the rainy window, phone to his ear.
@@ -290,101 +282,107 @@ function photo(g) {
   ink(g, [960, 600, 990, 575, 1000, 600], '#2d2d2d', 2);
 }
 
-// 5. Extreme close-up on his eyes.
-function eyes(g) {
-  g.fillStyle = PAPER; g.fillRect(0, 0, W, H);
-  hatch(g, [640, 0, W, 0, W, H, 640, H], 10, 1.1, 1.6, '#3a3a3a');        // shadow side of the face
-  ink(g, [0, 0, W, 0, W, 210, 900, 250, 640, 228, 380, 252, 0, 200]);       // hair and shadow over the brow
-  // brows, low and angry
-  brush(g, [200, 300, 330, 268, 460, 268, 560, 300], 34);
-  brush(g, [720, 300, 820, 268, 950, 268, 1080, 300], 34);
-  // eyes
-  for (const cx of [390, 890]) {
-    ink(g, [cx - 130, 380, cx - 60, 340, cx + 60, 340, cx + 130, 375, cx + 60, 408, cx - 60, 410], '#f4f2ed', 2);
-    blob(g, cx, 375, 36, 34, '#4a4a4a', 2);
-    blob(g, cx, 375, 18, 18, INK, 1);
-    blob(g, cx + 12, 364, 7, 7, '#ffffff', 1);
-    brush(g, [cx - 140, 382, cx - 70, 334, cx + 70, 334, cx + 140, 372], 16);  // heavy upper lid
-    brush(g, [cx - 110, 412, cx, 424, cx + 110, 404], 4);
-    brush(g, [cx - 90, 450, cx, 462, cx + 90, 446], 3, '#5a5a5a');             // tired bags
+// 5. Her coat, still hanging by the door. Light through the blinds.
+function coat(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  ink(g, [380, 0, 920, 0, 920, H, 380, H], '#1c1c1c', 4);                  // the hallway wall
+  ink(g, [920, 0, 980, 0, 980, H, 920, H], '#0f0f0f', 3);                  // door frame
+  // the hook
+  line(g, 640, 150, 640, 176, 8, '#6a6a6a');
+  brush(g, [640, 176, 652, 190, 664, 180], 5, '#6a6a6a');
+  // her coat: long, belted, hanging empty
+  ink(g, [612, 182, 668, 182, 730, 230, 760, 640, 690, 660, 640, 650, 590, 660, 520, 640, 550, 230], '#2b2b2b', 4);
+  ink(g, [612, 182, 640, 200, 668, 182, 650, 300, 640, 320, 630, 300], '#1a1a1a', 2);   // collar
+  line(g, 548, 390, 732, 390, 7, '#161616');                               // belt
+  for (const y of [300, 360, 450, 520]) blob(g, 650, y, 5, 5, '#5a5a5a', 1);
+  // a pale scarf over the hook
+  ink(g, [600, 176, 680, 176, 700, 210, 688, 460, 664, 470, 660, 230, 620, 240, 606, 420, 584, 410, 590, 210], '#8a8781', 4);
+  // light through the blinds, laid across everything in cold stripes
+  g.save(); g.globalAlpha = 0.2;
+  for (let i = 0; i < 8; i++) {
+    const y = 40 + i * 70;
+    ink(g, [0, y, W, y - 260, W, y - 228, 0, y + 32], PAPER, 2);
   }
-  // an old scar through the left eyebrow, and the bridge of the nose
-  brush(g, [300, 230, 320, 300, 335, 350], 9, '#f4f2ed');
-  brush(g, [302, 232, 322, 302, 336, 348], 3, '#6a2a26');
-  ink(g, [600, 330, 680, 330, 720, H, 560, H], '#7a7772', 6);
-  hatch(g, [640, 330, 680, 330, 720, H, 640, H], 7, 1.1, 1.8, '#2a2a2a');
-  dots(g, 0, 560, W, H, 900, 1.6, '#2a2a2a');                               // stubble starts
+  g.restore();
+  // her shoes, side by side on the floor
+  ink(g, [560, 690, 620, 686, 624, 706, 556, 708], '#3a3a3a', 2);
+  ink(g, [640, 692, 700, 688, 704, 708, 636, 710], '#3a3a3a', 2);
 }
 
-// 6. Profile, half in shadow, against red: his answer.
-function profile(g) {
-  burst(g, 820, 360, 36, RED, DARKRED);
-  g.save(); g.translate(560, 360); g.scale(2.4, 2.4);
-  // neck and shoulders
-  ink(g, [-80, 220, -60, 110, -10, 95, 40, 110, 70, 220], INK, 2);
-  ink(g, [-30, 125, -10, 220, 15, 220, 0, 125], PAPER, 1);                 // vest strap
-  // the face: light side, facing right
-  const face = [-88, -40, -60, -110, 0, -128, 52, -100, 66, -52, 62, -44, 88, -4, 64, 8, 70, 22, 60, 32, 66, 42, 62, 70, 40, 88, 0, 96, -40, 92, -80, 40];
-  ink(g, face, PAPER, 1.5);
-  // the dark side of the face (the light comes from the right)
-  ink(g, [-88, -40, -60, -110, -10, -118, 0, -70, 10, -20, -5, 30, 10, 80, -40, 92, -80, 40], INK, 2);
-  // hair
-  ink(g, [-92, -30, -70, -118, -10, -138, 50, -118, 60, -92, 30, -96, 0, -84, -30, -70], INK, 2);
-  // ear, outlined in white on the black side
-  g.strokeStyle = PAPER; g.lineWidth = 2; g.beginPath(); g.ellipse(-22, -10, 12, 20, 0.2, 0, Math.PI * 2); g.stroke();
-  // brow, eye, nose, mouth: angry, talking through his teeth
-  brush(g, [18, -62, 44, -56, 66, -48], 7);
-  ink(g, [30, -42, 54, -44, 50, -36, 32, -36], INK, 1);
-  brush(g, [58, -30, 74, -8], 2);
-  brush(g, [50, 8, 60, 14], 2);
-  ink(g, [40, 24, 66, 22, 64, 38, 44, 36], INK, 1);                          // open mouth
-  line(g, 44, 28, 64, 27, 2.5, PAPER);                                       // teeth
-  brush(g, [20, 0, 40, 18, 36, 48], 2, '#555');                              // cheek
-  dots(g, 8, 40, 60, 90, 70, 0.8, '#333');                                   // stubble
+// 6. His face, almost all in shadow. One band of light across his eyes. Calm.
+function shadowFace(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  // the shape of his head, only just there
+  const head = [440, 110, 520, 50, 640, 40, 740, 80, 790, 180, 800, 300, 780, 420, 740, 520, 680, 590, 600, 610, 520, 580, 470, 500, 440, 400, 430, 260];
+  ink(g, head, '#131313', 4);
+  brush(g, [760, 100, 794, 200, 802, 320, 784, 440, 744, 530, 684, 596], 4, '#4a4a4a');   // faint rim of light down his cheek
+  // one band of cold light from the blinds, across his eyes
+  g.save(); path(g, head); g.clip();
+  ink(g, [380, 268, 860, 252, 860, 340, 380, 356], '#cfccc5', 3);
+  // eyes: level, half closed, not angry, not scared. Just looking.
+  for (const cx of [545, 700]) {
+    ink(g, [cx - 58, 306, cx - 20, 299, cx + 28, 299, cx + 58, 305, cx + 24, 313, cx - 26, 313], '#d8d5ce', 1);
+    blob(g, cx + 2, 307, 9, 6, '#2a2a2a', 0.5);
+    blob(g, cx + 2, 307, 4, 4, INK, 0.3);
+    brush(g, [cx - 66, 306, cx - 30, 297, cx + 30, 297, cx + 66, 304], 10);  // heavy lid, low and flat
+  }
+  brush(g, [470, 268, 600, 262], 10, '#2a2a2a');                           // brows, straight
+  brush(g, [650, 262, 770, 266], 10, '#2a2a2a');
+  brush(g, [500, 240, 512, 292, 518, 330], 4, '#8d8a84');                  // the old scar through his brow, pale
+  hatch(g, [610, 256, 640, 256, 640, 356, 610, 356], 6, 1.2, 1.4, '#3a3a3a');   // nose bridge in shadow
+  // a second, fainter band lower down: a flat, closed mouth and stubble
+  g.globalAlpha = 0.35;
+  ink(g, [380, 470, 860, 458, 860, 508, 380, 520], '#cfccc5', 3);
+  g.globalAlpha = 1;
+  brush(g, [570, 492, 630, 489, 690, 492], 5);
+  dots(g, 470, 466, 780, 516, 160, 1.2, '#2a2a2a');
   g.restore();
 }
 
-// 7. Lightning: the room goes white, he's a black shape.
-function lightning(g) {
-  g.fillStyle = PAPER; g.fillRect(0, 0, W, H);
-  // the bolt, seen through the window behind him
-  ink(g, [980, 0, 1010, 0, 960, 180, 1030, 190, 930, 420, 970, 240, 900, 230], INK, 2);
-  ink(g, [960, 180, 1050, 260, 1000, 250], INK, 1);
-  // him, front on, shoulders filling the frame
-  ink(g, [130, H, 190, 520, 340, 450, 520, 430, 560, 380, 540, 330, 520, 200, 560, 110, 640, 80,
-          720, 110, 760, 200, 740, 330, 720, 380, 760, 430, 940, 450, 1090, 520, 1150, H], INK, 4);
-  // just his eyes, catching the flash
-  ink(g, [570, 250, 610, 238, 625, 252, 585, 258], PAPER, 1);
-  ink(g, [655, 252, 670, 238, 710, 250, 695, 258], PAPER, 1);
-  rain(g, 200, INK, 0.25);
+// 7. Wide: the dark flat, him small on the edge of the bed, the phone lowered.
+function smallInDark(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  // the window, far off, with rain on it
+  ink(g, [820, 130, 1060, 130, 1060, 380, 820, 380], '#9e9b95', 3);
+  rain(g, 70, '#3a3a3a', 0.7, 820, 130, 1060, 380);
+  ink(g, [935, 130, 948, 130, 948, 380, 935, 380], INK, 1);
+  ink(g, [820, 250, 1060, 250, 1060, 262, 820, 262], INK, 1);
+  // its light, a cold pool on the floor
+  ink(g, [800, 470, 1080, 470, 1180, 640, 700, 640], '#2a2928', 5);
+  // the bed and him, small, sitting very still
+  ink(g, [560, 470, 900, 462, 906, 520, 556, 528], '#151515', 3);
+  ink(g, [835, 470, 830, 410, 838, 372, 852, 356, 872, 356, 882, 372, 884, 410, 878, 470], INK, 2);
+  blob(g, 862, 340, 13, 15, INK, 1);
+  ink(g, [876, 470, 912, 470, 914, 530, 902, 532, 900, 486, 880, 486], INK, 1);   // knee and shin
+  ink(g, [868, 410, 900, 440, 912, 470, 902, 474, 886, 446, 864, 428], INK, 1);   // arm resting, phone in hand
+  blob(g, 908, 470, 3, 2, '#cfccc5', 0.5);                                        // the phone's tiny screen
+  // a glass on the floor by the bed
+  ink(g, [520, 520, 540, 520, 538, 560, 522, 560], '#2e2e2e', 1);
 }
 
-// 8. The crowbar jammed into the wall panel: KRAK!
+// 8. The crowbar's flat end, pushed into the seam of the wall panel. A steady hand.
 function crowbar(g) {
-  burst(g, 760, 330, 28, '#8a8680', '#77736d');
-  // wooden panel, splitting
-  ink(g, [560, 0, W, 0, W, H, 600, H], '#5b5852', 4);
-  for (let i = 0; i < 12; i++) brush(g, [620 + i * 55, 0, 610 + i * 55 + rnd() * 20, 360, 630 + i * 55, H], 2.5, '#3a3835');
-  ink(g, [700, 0, 760, 250, 720, 330, 790, 520, 740, H, 680, H, 720, 520, 650, 330, 690, 250, 640, 0], INK, 6); // the split
-  // splinters flying
-  for (let i = 0; i < 16; i++) {
-    const a = -Math.PI / 2 + (rnd() - 0.5) * 2.4, d = 90 + rnd() * 260, x = 730 + Math.cos(a) * d, y = 330 + Math.sin(a) * d;
-    ink(g, [x, y, x + Math.cos(a) * 46, y + Math.sin(a) * 46, x + 6, y + 5], rnd() < 0.5 ? PAPER : INK, 2);
-  }
-  // the crowbar
-  brush(g, [60, 760, 420, 500, 730, 300], 64);
-  brush(g, [60, 744, 420, 486, 720, 290], 9, '#8d8d8d');
-  // big fists wrapped round it, knuckles and all
-  for (const [x, y] of [[250, 620], [470, 470]]) {
-    blob(g, x, y, 120, 82, PAPER, 6, -0.6);
-    g.strokeStyle = INK; g.lineWidth = 6; g.lineCap = 'round';
-    for (let k = -1.5; k <= 1.5; k++) { g.beginPath(); g.arc(x + k * 44 + 10, y - k * 28 - 12, 28, 3.6, 5.6); g.stroke(); }
-    brush(g, [x - 100, y + 16, x - 40, y + 66, x + 60, y + 50], 8);
-    brush(g, [x - 110, y - 30, x - 80, y + 50], 6);
-    hatch(g, [x - 30, y + 20, x + 90, y - 30, x + 100, y + 30, x, y + 70], 8, 0.8, 2);
-  }
-  ink(g, [0, H, 0, 600, 150, 650, 190, H]);                                 // his arm and sleeve, in shadow
-  letters(g, 'KRAK!', 960, 200, 210, -0.12, RED, INK, INK);
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  // the panelling, lit from the left
+  ink(g, [0, 0, W, 0, W, H, 0, H], '#2f2e2b', 4);
+  const side = g.createLinearGradient(0, 0, W, 0);
+  side.addColorStop(0, 'rgba(230,227,220,0.18)'); side.addColorStop(1, 'rgba(0,0,0,0.5)');
+  g.fillStyle = side; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 14; i++) brush(g, [i * 96 + 20, 0, i * 96 + 14 + rnd() * 10, 360, i * 96 + 22, H], 1.6, '#1c1b19');
+  // the seam, and where it's starting to split
+  ink(g, [700, 0, 712, 0, 714, H, 702, H], INK, 2);
+  ink(g, [712, 250, 760, 300, 746, 330, 712, 380], INK, 2);
+  // the crowbar, coming in from the bottom left
+  brush(g, [80, 760, 420, 520, 704, 312], 46, '#1a1a1a');
+  brush(g, [80, 748, 420, 508, 700, 302], 5, '#6a6a6a');
+  // his hand on it: still, knuckles pale
+  blob(g, 330, 590, 110, 70, '#b9b6af', 5, -0.6);
+  g.strokeStyle = '#3a3a3a'; g.lineWidth = 4; g.lineCap = 'round';
+  for (let k = -1.5; k <= 1.5; k++) { g.beginPath(); g.arc(340 + k * 40, 584 - k * 26 - 10, 24, 3.6, 5.6); g.stroke(); }
+  ink(g, [0, H, 0, 640, 200, 660, 240, H], INK);                           // sleeve, in shadow
+  // a little dust drifting from the split
+  g.fillStyle = 'rgba(230,227,220,0.5)';
+  for (let i = 0; i < 26; i++) { g.beginPath(); g.arc(700 + rnd() * 120, 260 + rnd() * 280, 1 + rnd() * 1.6, 0, 7); g.fill(); }
 }
 
 // 9. The stash behind the wall: suits, wanted posters, the revolver.
@@ -394,7 +392,7 @@ function stash(g) {
   ink(g, [150, 0, 260, 0, 240, H, 150, H], '#3c3a36', 5);
   ink(g, [1020, 0, 1130, 0, 1130, H, 1040, H], '#3c3a36', 5);
   // a shaft of light falling in from the room
-  ink(g, [260, 0, 620, 0, 960, H, 420, H], 'rgba(230,227,220,0.12)', 4);
+  ink(g, [260, 0, 620, 0, 960, H, 420, H], 'rgba(230,227,220,0.16)', 4);
   // wanted posters
   for (const [x, y, r] of [[330, 80, -0.05], [730, 70, 0.04]]) {
     g.save(); g.translate(x, y); g.rotate(r);
@@ -405,10 +403,7 @@ function stash(g) {
     g.fillStyle = INK; g.font = 'bold 18px Georgia, serif'; g.textAlign = 'center'; g.fillText('$10,000 REWARD', 110, 238);
     g.restore();
   }
-  // the revolver on its pegs, with a red glow behind it
-  const glow = g.createRadialGradient(640, 390, 10, 640, 390, 260);
-  glow.addColorStop(0, 'rgba(179,18,15,0.75)'); glow.addColorStop(1, 'rgba(179,18,15,0)');
-  g.fillStyle = glow; g.fillRect(380, 200, 520, 380);
+  // the revolver on its pegs
   line(g, 545, 410, 545, 440, 10, '#6a6a6a'); line(g, 735, 410, 735, 440, 10, '#6a6a6a');
   drawGun(g, 640, 395, 1.1, 0);
   // suits hanging on a rail
@@ -441,20 +436,33 @@ function drawGun(g, x, y, s, a) {
   g.restore();
 }
 
-// 10. Close-up: his hand on the revolver, spinning the cylinder.
-function revolver(g) {
-  burst(g, 560, 360, 40, RED, DARKRED);
-  drawGun(g, 520, 320, 2.0, -0.12);
-  // motion arcs round the spinning cylinder
-  g.strokeStyle = PAPER; g.lineWidth = 6; g.lineCap = 'round';
-  for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(675, 320, 105 + k * 24, -1.2 + k * 0.2, 0.3 + k * 0.2); g.stroke(); }
-  // his hand wrapped round the grip: fingers in front, thumb over the top
-  blob(g, 1010, 380, 100, 78, PAPER, 6, 1.1);
-  g.strokeStyle = INK; g.lineWidth = 6;
-  for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(960 + k * 20, 336 + k * 30, 26, 2.6, 4.6); g.stroke(); }
-  brush(g, [935, 300, 985, 272, 1040, 290], 8);                             // thumb
-  ink(g, [1010, 440, 1100, 420, W, 470, W, H, 1080, H]);                    // wrist and sleeve
-  letters(g, 'CLICK', 300, 600, 90, -0.1, PAPER, INK, INK);
+// 10. Close-up: the cylinder swung open. He pushes the rounds in, one at a time.
+function loading(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  const glow = g.createRadialGradient(640, 330, 20, 640, 330, 520);
+  glow.addColorStop(0, 'rgba(230,227,220,0.14)'); glow.addColorStop(1, 'rgba(230,227,220,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  // the cylinder, seen end on
+  const cx = 600, cy = 360;
+  blob(g, cx, cy, 190, 190, '#262626', 4);
+  brush(g, [cx - 150, cy - 120, cx - 60, cy - 180, cx + 60, cy - 182], 6, '#6a6a6a');   // a glint on the steel
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 - Math.PI / 2, x = cx + Math.cos(a) * 112, y = cy + Math.sin(a) * 112;
+    blob(g, x, y, 44, 44, '#0a0a0a', 1.5);
+    if (i >= 1 && i <= 4) {          // four already loaded: brass rims, primers
+      blob(g, x, y, 40, 40, '#8f8c85', 1.5);
+      blob(g, x, y, 32, 32, '#a8a59e', 1);
+      blob(g, x, y, 9, 9, '#5a5a5a', 0.5);
+    }
+  }
+  blob(g, cx, cy, 30, 30, '#3a3a3a', 1);
+  // his fingers, holding the fifth round over its chamber
+  const tx = cx, ty = cy - 112;      // the empty chamber at the top
+  ink(g, [tx - 30, ty - 10, tx + 30, ty - 10, tx + 34, ty - 150, tx - 26, ty - 150], '#9a978f', 2);  // the round
+  ink(g, [tx - 34, ty - 150, tx + 38, ty - 150, tx + 40, ty - 162, tx - 36, ty - 162], '#b0ada6', 1);
+  ink(g, [tx + 20, ty - 190, tx + 240, ty - 260, W, ty - 220, W, ty - 60, tx + 230, ty - 80, tx + 44, ty - 120], '#b9b6af', 6); // fingers and hand
+  brush(g, [tx + 40, ty - 150, tx + 120, ty - 170, tx + 220, ty - 160], 3, '#5a5a5a');
+  brush(g, [tx + 40, ty - 126, tx + 140, ty - 120, tx + 240, ty - 100], 3, '#5a5a5a');
 }
 
 // 11. He walks out of the door into the rain, revolver in hand.

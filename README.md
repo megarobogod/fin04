@@ -3,7 +3,7 @@
 A black-and-white, old-school 2D-style FPS (a raycaster, like the early-90s
 shooters). The only colour is red, and red is blood.
 
-It opens with a cutscene drawn as inked comic panels in black, white and red: you're a retired hitman in a run-down flat, and the Vipers
+It opens with a cold, quiet cutscene drawn as inked comic panels: you're a retired hitman in a run-down flat, and the Vipers
 call to say they've got your wife. You dig your old revolver out of a stash behind
 the wall panelling and walk out into the rain. (Click for the next shot, Space skips it.)
 
