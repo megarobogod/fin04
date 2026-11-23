@@ -9,7 +9,8 @@ the wall panelling and walk out into the rain. (Click for the next shot, Space s
 
 You have a revolver: six rounds, reloaded one at a time. Clear the Vipers gang
 out of three levels: **The Dellwood** (an apartment building, three floors, with the
-Vipers lieutenant at the top), **The Back Alleys** and **The Hideout**, where the boss is waiting.
+Vipers lieutenant at the top), **The Docks** at Pier Nine, and **The Hideout** inside the
+Pier Nine warehouse, where the boss is waiting.
 
 ## Controls
 - **WASD**: move. **Mouse**: look around, including up and down. **Click** or **Space**: shoot.

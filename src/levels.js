@@ -11,6 +11,11 @@
 //   inside the Dellwood apartments:
 //   y  wallpaper          Y  dark wallpaper    q  plaster
 //   n  apartment door (a picture)   m  mailboxes   l  the broken lift
+//   at the docks:
+//   U  shipping container  u  dark container    H  the far side of the harbour
+//   N  the PIER 9 sign (glows)                  g  big warehouse doors, chained shut
+// WATER: a level can name one floor character as water (the docks use ~):
+//   you can see and shoot across it, but nobody can walk on it.
 // DOORS that slide open when someone comes near:
 //   |  a door you walk through going east-west    -  going north-south
 // FLOORS: each level says which floor texture each of these means:
@@ -26,6 +31,7 @@ export const WALLS = {
   '#': 'brick', '%': 'darkbrick', w: 'window', v: 'darkwindow', G: 'graffiti', X: 'poster',
   D: 'door', S: 'bar', W: 'wood', C: 'concrete', M: 'metal', F: 'fence',
   y: 'wallpaper', Y: 'wallpaper2', q: 'plaster', n: 'aptdoor', m: 'mailboxes', l: 'elevator',
+  U: 'container', u: 'container2', H: 'harbour', N: 'piersign', g: 'bigdoor',
 };
 
 export const THINGS = {
@@ -133,33 +139,43 @@ export const LEVELS = [
     ],
   },
   {
-    name: 'THE BACK ALLEYS',
-    intro: 'Pier Nine is on the far side of the back alleys. The Vipers know you are coming.',
+    name: 'THE DOCKS',
+    intro: "Pier Nine. Rain on the containers, black water under the boards. The warehouse is at the end of the pier, and the Vipers know you're coming.",
     outdoor: true, rain: true, lightning: true,
-    ambient: 0.26, fog: 14,
-    floors: { '.': 'cobble', ',': 'cobble' },
-    angle: Math.PI / 2,                     // facing south
+    ambient: 0.22, fog: 15,
+    floors: { ',': 'concretefloor', '.': 'planks', '~': 'water' },
+    water: '~',               // the harbour: you can't walk on it
+    angle: 0,
     map: [
-      '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%',
-      '%P,,,#,,,,,,,,,,F,,,,,,,,,,,,%',
-      '%,,,,#,,b,,,,t,,F,,c,,,,,,t,,%',
-      '%,,,,D,,,,,#XG#WF,,,,,,WWWW,,%',
-      '%,,,,,,,,,,#,,,,,,,,,,,%,,,,,%',
-      '%#D,##v#,,,#,,t,,,##,,,%,,o,,%',
-      '%,,,,,,#,,,#,,,,,,##,,,M,,,,,%',
-      '%,,o,,,M,,,,,,c,,,,,,s,,,,,,,%',
-      '%,,,,,,#v#G#,,,,#X#,,h,,#D#w#%',
-      '%,t,,,,,,,,#,,L,,,,,,,,,,,s,,%',
-      '%,,,,,,,,,,C,,,,b,CCCCCC,,,,,%',
-      '%%G%%,,,,,,C,,,,,,C,,,,C,,t,,%',
-      '%,,,,,,,,,,,,,,,,,,,t,,G,,,,,%',
-      '%,+,,c,,,,,C,,,t,,C,,,,,,,a,,%',
-      '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%',
+      '#F#FFFF#FFFF#FFFF#FFFF#FFFF#FFFF#FFFF#FH',
+      'F,,,,,,,,,,,,,,,,,,,,,,,,,,,,,MMMMMMMMMH',
+      'F,,L,,,,,,uuuu,,,,,,UUUU,,,,L,MMMMMMMMMH',
+      'F,,,,UU,,,uuuu,,,,b,UUUU,,,,,,MMMMMMMMMH',
+      'F,,,,UU,t,,,,,,,,,b,,,,,,UU,,,NMMMMMMMMH',
+      'F,,,,UU,,,,s,,,uu,,,,,,h,UU,,,MMMMMMMMMH',
+      'F,P,,UU,,,,,c,,uu,t,,,,,,UU,t,MNMggMMMMH',
+      'F,,,,,,,,,,,,t,uu,,uuuu,,UU,,,,...,,,,,H',
+      'F,,,,,,,,UU,,,,uu,,uuuu,,UU,,T,...,t,c,H',
+      'F,,cc,,,,UU,,,,uu,,,,,,,,,,,,,,...,,b,,H',
+      'F,a,,,,,,,,,,,L,,,,,,,+,L,,c,,,b..,,+,,H',
+      'F,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,..s,,,,,H',
+      'H~~~~~...~~~~~~~~...~~~~~~~~WW~...~~~~~H',
+      'H~~~~~.L.~~~~~~~~.c.~WW~~~~~WW~.L.~~~~~H',
+      'H~~~~~...~WWW~~~~...~WW~~~~~WW~...~~~~~H',
+      'H~~~~~.t.~WWW~~~~...~WW~~~~~WW~.h.~~~~~H',
+      'H~~~~~...~WWW~~~~.L.~WW~~~~~WW~...~~~~~H',
+      'H~~~~~.b.~WWW~~~~...~~~~~~~~~~~.c.~~~~~H',
+      'H~~~~~...~~~~~~~~.t.~~~~~~~~~~~...~~~~~H',
+      'H~~~~~........t..........L........~~~~~H',
+      'H~~~~~......L.......a.....t......t~~~~~H',
+      'H~~~~~..s~~~~~~~~...~~~~~~~~~~~...~~~~~H',
+      'H~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~H',
+      'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH',
     ],
   },
   {
     name: 'THE HIDEOUT',
-    intro: 'Their warehouse down by the docks. The boss is in the back room, and so is she. End it.',
+    intro: 'Inside the Pier Nine warehouse. The boss is in the back room, and so is she. End it.',
     outdoor: false, rain: false, lightning: false,
     ambient: 0.27, fog: 15,
     floors: { '.': 'woodfloor', ',': 'concretefloor' },

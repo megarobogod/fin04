@@ -142,3 +142,9 @@ export function breakOpen() { burst({ vol: 0.5, dur: 0.06, f0: 2500, f1: 1200, t
 export function snapShut() { burst({ vol: 0.6, dur: 0.07, f0: 3000, f1: 900, type: 'bandpass', q: 2 }); tone({ vol: 0.2, dur: 0.08, f0: 300, f1: 150 }); }
 export function door() { burst({ vol: 0.18, dur: 0.45, f0: 700, f1: 300, type: 'bandpass', q: 3 }); tone({ vol: 0.05, dur: 0.4, f0: 220, f1: 180, type: 'sawtooth' }); }
 export function stairs() { for (let i = 0; i < 5; i++) burst({ vol: 0.28, dur: 0.08, f0: 320, f1: 90, delay: i * 0.22 }); }
+
+// A low, cold hit under a title card.
+export function sting() {
+  tone({ vol: 0.6, dur: 3.0, f0: 55, f1: 41 });
+  burst({ vol: 0.35, dur: 2.5, f0: 300, f1: 40, q: 0.3 });
+}

@@ -267,6 +267,46 @@ function buildWalls() {
     g.strokeStyle = css(20); g.beginPath(); g.moveTo(32, 5); g.lineTo(29, 2); g.stroke();
     g.fillStyle = css(220); g.font = 'bold 4px Arial'; g.fillText('OUT OF ORDER', 18, 40);
   });
+  // ---- the docks ----
+  // a shipping container side: deep vertical ridges, locking bars, a stencilled number
+  const container = (base, salt, label) => makeTex(T, T, (x, y) => {
+    let v = base + ((x % 8) < 4 ? 14 : -6) + noise(x, y, 4, salt) * 18 + rand() * 8;
+    if (noise(x, y, 8, salt + 1) > 0.72) v -= 24;                         // rust and grime
+    if (y < 3 || y > 60) v = base - 30;
+    return gray(v);
+  }, (g) => {
+    g.fillStyle = css(base - 34); g.fillRect(14, 3, 2, 58); g.fillRect(48, 3, 2, 58);
+    g.fillStyle = css(base + 60); g.font = "bold 9px 'Courier New', monospace"; g.fillText(label, 20, 20);
+  });
+  W.container = container(84, 61, 'VPR 214');
+  W.container2 = container(56, 63, 'PIER 9');
+  // the far side of the harbour, seen across the water: dark, a few distant lights
+  W.harbour = makeTex(T, T, (x, y) => {
+    if (y < 30) return gray(16 + y * 0.6 + noise(x, y, 8, 65) * 10);     // night mist
+    if (y < 40) return gray(10 + (hash(x >> 2, 0, 66) > 0.6 ? 14 : 0));  // the far shore, low buildings
+    return gray(14 + (Math.sin(y * 1.7 + x * 0.3) > 0.85 ? 22 : 0) + rand() * 6);  // black water, a few glints
+  }, (g) => {
+    g.fillStyle = css(235);
+    for (const [x, y] of [[6, 36], [20, 33], [41, 37], [55, 34]]) g.fillRect(x, y, 1.5, 1.5);
+    g.fillStyle = css(120); for (const [x, y] of [[6, 46], [20, 44], [41, 49], [55, 45]]) g.fillRect(x, y, 1, 4);   // their reflections
+  }, [[0, 30, 64, 40, 200]]);
+  // the warehouse sign, glowing
+  W.piersign = makeTex(T, T, (x, y) => gray(70 + Math.sin(x * 0.8) * 18 + rand() * 8), (g) => {
+    g.fillStyle = css(16); g.fillRect(4, 14, 56, 30);
+    g.strokeStyle = css(150); g.lineWidth = 2; g.strokeRect(4, 14, 56, 30);
+    g.fillStyle = css(240); g.font = 'bold 16px Georgia, serif'; g.textAlign = 'center';
+    g.fillText('PIER 9', 32, 35);
+  }, [[5, 15, 59, 43, 180]]);
+  // big sliding warehouse doors, chained shut
+  W.bigdoor = makeTex(T, T, (x, y) => {
+    let v = 64 + ((y % 6) < 3 ? 10 : -4) + noise(x, y, 4, 67) * 14 + rand() * 6;
+    if (x === 31 || x === 32) v = 24;
+    return gray(v);
+  }, (g) => {
+    g.strokeStyle = css(150); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(22, 30); g.lineTo(42, 36); g.moveTo(22, 36); g.lineTo(42, 30); g.stroke();
+    g.fillStyle = css(170); g.fillRect(29, 30, 6, 8);
+  });
   // a plain wooden door that slides into the wall when someone comes near
   W.slidedoor = makeTex(T, T, (x, y) => {
     if (x < 2 || x > 61) return gray(26);
@@ -320,6 +360,20 @@ function buildFloors() {
   F.ceilconcrete = makeTex(T, T, (x, y) => {
     if (x === 0 || y === 0) return gray(30);
     return gray(58 + noise(x, y, 4, 23) * 16 + rand() * 8);
+  });
+  F.water = makeTex(T, T, (x, y) => {
+    // black harbour water, with streaks of reflected light
+    let v = 14 + noise(x, y, 4, 68) * 10 + rand() * 4;
+    const ripple = Math.sin(y * 0.9 + noise(x, y, 8, 69) * 6);
+    if (ripple > 0.82) v += 34 * noise(x, y, 4, 70);
+    if (ripple > 0.9) v += 18;
+    return gray(v);
+  }, null, [[0, 0, T, T, 44]]);   // the brightest ripples glow a little, so you can see the water in the dark
+  F.planks = makeTex(T, T, (x, y) => {
+    // pier boards running across, with dark gaps between them
+    if ((x & 15) < 1) return gray(8);
+    const b = x >> 4;
+    return gray(72 + hash(b, 0, 71) * 22 + Math.sin(y * 0.35 + b * 3) * 5 + rand() * 10 - (noise(x, y, 8, 72) > 0.7 ? 18 : 0));
   });
   F.carpet = makeTex(T, T, (x, y) => {
     if (x < 4 || x > 59) return gray(30 + rand() * 6);                       // dark border

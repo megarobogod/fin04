@@ -370,7 +370,7 @@ class Game {
         const nx = cx + dx, ny = cy + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
         const n = ny * w + nx;
-        if (flow[n] >= 0 || this.world.solid[n] || this.blocked[n]) continue;   // doors count as open for paths
+        if (flow[n] >= 0 || this.world.solid[n] || this.world.water[n] || this.blocked[n]) continue;   // doors count as open for paths
         flow[n] = flow[c] + 1;
         queue[tail++] = n;
       }
@@ -405,7 +405,7 @@ class Game {
       q.vz -= GRAVITY * dt;
       const nx = q.x + q.vx * dt, ny = q.y + q.vy * dt;
       q.z += q.vz * dt;
-      if (world.solidAt(nx, ny)) { q.vx *= -0.2; q.vy *= -0.2; } else { q.x = nx; q.y = ny; }
+      if (world.wallAt(nx, ny)) { q.vx *= -0.2; q.vy *= -0.2; } else { q.x = nx; q.y = ny; }
       if (q.z <= 0) {
         if (q.kind === 'blood') world.splatFloor(q.x, q.y, 0.025 + Math.random() * 0.035);
         continue;

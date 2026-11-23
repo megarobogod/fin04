@@ -31,6 +31,7 @@ export class World {
     this.doorIdx = new Int16Array(n).fill(-1);
     this.doors = [];
     this.stairs = new Uint8Array(n);
+    this.water = new Uint8Array(n);   // water: you can see and shoot across it, but not walk on it
     this.things = [];
     this.flash = 0;            // extra light everywhere (muzzle flash, lightning)
 
@@ -53,7 +54,7 @@ export class World {
           const count = {};
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const c = at(x + dx, y + dy);
-            if (floors[c] && c !== '^') count[c] = (count[c] || 0) + 1;
+            if (floors[c] && c !== '^' && c !== level.water) count[c] = (count[c] || 0) + 1;   // never stand things on water
           }
           kind = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || firstFloor;
           if (ch === '|' || ch === '-') {
@@ -66,6 +67,7 @@ export class World {
           }
         }
         if (ch === '^') this.stairs[i] = 1;
+        if (level.water && ch === level.water) this.water[i] = 1;
         this.floorTex[i] = art.floors[floors[kind]];
         const ceil = ceilings ? ceilings[kind] : level.ceiling;
         if (this.ceilTex && ceil) this.ceilTex[i] = art.floors[ceil];
@@ -81,11 +83,17 @@ export class World {
   solidCell(ix, iy) {
     if (ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) return true;
     const i = iy * this.w + ix;
-    if (this.solid[i]) return true;
+    if (this.solid[i] || this.water[i]) return true;
     const d = this.doorIdx[i];
     return d >= 0 && this.doors[d].open < 0.9;
   }
   solidAt(x, y) { return this.solidCell(Math.floor(x), Math.floor(y)); }
+  // Just walls (not doors or water): for light and flying blood.
+  wallAt(x, y) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    if (ix < 0 || iy < 0 || ix >= this.w || iy >= this.h) return true;
+    return this.solid[iy * this.w + ix] === 1;
+  }
 
   // Is there a roof over this spot? (No roof = outdoors: sky and rain.)
   indoors(x, y) {
@@ -214,7 +222,7 @@ export class World {
         for (let sx = x0; sx <= x1; sx++) {
           const px = (sx + 0.5) / LIGHT_RES, py = (sy + 0.5) / LIGHT_RES;
           const d = Math.hypot(px - L.x, py - L.y);
-          if (d >= r || this.solidAt(px, py)) continue;
+          if (d >= r || this.wallAt(px, py)) continue;
           if (!this.clear(L.x, L.y, px, py)) continue;
           const f = 1 - d / r;
           light[sy * lw + sx] += L.power * f * f;

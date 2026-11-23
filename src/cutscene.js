@@ -670,6 +670,19 @@ function breakOpen(g) {
   brush(g, [560, 190, 720, 170, 880, 170], 3, '#5a5a5a');
 }
 
+// The title: SIX BARRELS, in red, on black.
+function sixBarrels(g) {
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  g.save();
+  g.font = "bold 118px Georgia, 'Times New Roman', serif";
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if ('letterSpacing' in g) g.letterSpacing = '22px';
+  g.fillStyle = RED;
+  g.fillText('SIX BARRELS', W / 2 + 11, H / 2 - 10);
+  g.restore();
+  line(g, W / 2 - 180, H / 2 + 70, W / 2 + 180, H / 2 + 70, 3, DARKRED);
+}
+
 // =========================================================================
 // The scenes, and playing them
 // =========================================================================
@@ -683,8 +696,10 @@ const INTERROGATION = [
   { draw: muzzle, dur: 3.0, sfx: [[1.6, sfx.click]] },
   { draw: blackout, dur: 2.0, sfx: [[0.3, sfx.revolver]] },
   { draw: aftermath, dur: 3.6, sfx: [[1.4, sfx.clang]] },
-  { draw: breakOpen, dur: 4.8, fadeOut: 1.6, lines: [[1.2, 'you', 'Pier Nine.']],
+  { draw: breakOpen, dur: 4.4, lines: [[1.2, 'you', 'Pier Nine.']],
     sfx: [[0.3, sfx.breakOpen], [1.6, sfx.insert], [3.0, sfx.snapShut]] },
+  { draw: sixBarrels, dur: 4.2, still: true, sfx: [[0, sfx.sting]] },   // the title, then...
+  { draw: blackout, dur: 1.6, still: true },                              // ...cut to black
 ];
 
 const SCENES = { opening: PANELS, interrogation: INTERROGATION };
@@ -774,9 +789,9 @@ export class Cutscene {
     let current = null;
     for (const l of p.lines || []) if (this.t >= l[0]) current = l;
     this.showLine(current);
-    if (this.t < CUT) return;                                   // the beat of black between panels
+    if (this.t < CUT && !p.still) return;                      // the beat of black between panels
     // very slow push in, and a jolt on impacts
-    const k = Math.min(1, this.t / p.dur), z = 1 + PUSH * k;
+    const k = Math.min(1, this.t / p.dur), z = p.still ? 1 : 1 + PUSH * k;
     g.save();
     g.translate(W / 2, H / 2); g.scale(z, z); g.translate(-W / 2, -H / 2);
     if (p.shake && this.t > p.shake && this.t < p.shake + 0.35) g.translate((Math.random() - 0.5) * 18, (Math.random() - 0.5) * 12);
