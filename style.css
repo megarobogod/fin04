@@ -53,3 +53,7 @@ body { display: grid; place-items: center; font-family: Georgia, 'Times New Roma
 #subs.voice span { color: #aaa; font-style: italic; }
 #subs.caption span { font-family: 'Courier New', monospace; letter-spacing: .25em; text-transform: uppercase; font-size: .75em; color: #bbb; }
 #skip { position: absolute; right: 2%; top: 1.6%; font-family: 'Courier New', monospace; font-size: clamp(9px, 1vw, 12px); letter-spacing: .3em; color: #555; pointer-events: none; }
+
+/* the cutscene is drawn on its own sharp, high-resolution canvas on top of the game */
+#cine { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #000; }
+#cine[hidden] { display: none; }

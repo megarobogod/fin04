@@ -3,7 +3,7 @@
 A black-and-white, old-school 2D-style FPS (a raycaster, like the early-90s
 shooters). The only colour is red, and red is blood.
 
-It opens with a cutscene told in still shots, like a graphic novel: you're a retired hitman in a run-down flat, and the Vipers
+It opens with a cutscene drawn as inked comic panels in black, white and red: you're a retired hitman in a run-down flat, and the Vipers
 call to say they've got your wife. You dig your old revolver out of a stash behind
 the wall panelling and walk out into the rain. (Click for the next shot, Space skips it.)
 
@@ -36,5 +36,5 @@ straight from a file, so it needs this tiny server.)
 - `src/textures.js`: every picture, drawn in code.
 - `src/world.js`: walls, light, line of sight, blood on walls and floors.
 - `src/audio.js`: every sound, made in code.
-- `src/cutscene.js`: the opening scene. Each shot (camera, words, sounds) is in `SHOTS` at the top.
+- `src/cutscene.js`: the opening scene. Each panel's words, sounds and timing are in `PANELS` at the top; the drawings are the functions below it.
 - `src/main.js`: ties it all together.
