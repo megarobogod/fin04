@@ -73,8 +73,12 @@ export class Renderer {
     // (F, the "focal length") and the view gets narrower to match.
     const zoom = cam.zoom || 1;
     const F = H * zoom;
-    const horizon = Math.round(H / 2 + F * Math.tan(cam.pitch) + cam.bobY);
-    const dirX = Math.cos(cam.angle), dirY = Math.sin(cam.angle);
+    // screen shake: a jolt up/down and a twitch left/right (from gunfire, hits and kills)
+    const sh = game.shake || 0;
+    const shakeY = sh ? (Math.random() - 0.5) * sh * 14 : 0;
+    const ang = cam.angle + (sh ? (Math.random() - 0.5) * sh * 0.025 : 0);
+    const horizon = Math.round(H / 2 + F * Math.tan(cam.pitch) + cam.bobY + shakeY);
+    const dirX = Math.cos(ang), dirY = Math.sin(ang);
     const P = this.plane / zoom, plX = -dirY * P, plY = dirX * P;
     const wmap = world.w, hmap = world.h;
 
@@ -83,7 +87,7 @@ export class Renderer {
       const sky = this.art.sky;
       for (let x = 0; x < W; x++) {
         const camX = (2 * x) / W - 1;
-        let a = cam.angle + Math.atan(camX * P);
+        let a = ang + Math.atan(camX * P);
         let u = Math.floor((a / (Math.PI * 2)) * sky.w * 2) % sky.w;   // sky repeats twice round
         if (u < 0) u += sky.w;
         for (let y = 0; y <= horizon && y < H; y++) {
@@ -233,6 +237,7 @@ export class Renderer {
       if (ads < 0.5) this.drawGun(game, Math.min(1, ads * 2 + p0.switchPose));
       else this.drawSights(game, ads * 2 - 1);
       if (ads < 0.3) this.drawCrosshair();
+      if (p0.kickT > 0) this.drawBoot(game);
     }
   }
 
@@ -298,6 +303,18 @@ export class Renderer {
     ctx.translate(x + 100, y + 120);
     ctx.rotate(p.recoil * -0.06);
     ctx.drawImage(s, -100, -120);
+    ctx.restore();
+  }
+
+  // The kick: your boot swings up into view and back down.
+  drawBoot(game) {
+    const p = game.player, boot = this.art.boot, ctx = this.ctx;
+    const k = 1 - p.kickT / 0.28;                       // 0..1 through the kick
+    const up = Math.sin(Math.min(1, k * 1.6) * Math.PI * 0.5) * (1 - Math.max(0, (k - 0.6) / 0.4));
+    ctx.save();
+    ctx.translate(this.W / 2 + 10, this.H + 30 - up * 110);
+    ctx.rotate(-0.35 + up * 0.25);
+    ctx.drawImage(boot, -55, -70, 110, 140);
     ctx.restore();
   }
 

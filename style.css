@@ -62,3 +62,12 @@ body { display: grid; place-items: center; font-family: Georgia, 'Times New Roma
 #wname { display: block; text-align: right; font-size: .45em; letter-spacing: .25em; color: #888; margin-bottom: .2em; }
 #floor { color: #888; }
 #subs.lt span { color: #bbb; }
+
+/* the style meter (top right) and dash charges (bottom middle) */
+#style { position: absolute; right: 3%; top: 8%; text-align: right; min-width: 14em; }
+#rank { display: block; color: var(--red); font-family: Georgia, serif; font-size: clamp(16px, 2.6vw, 34px); letter-spacing: .2em; min-height: 1.2em; }
+#style i { display: block; height: 4px; background: #222; margin: .3em 0 .4em auto; width: 12em; max-width: 100%; }
+#style em { display: block; height: 100%; background: var(--red); width: 0; transition: width .1s; margin-left: auto; }
+#slabel { display: block; font-size: clamp(10px, 1.2vw, 15px); letter-spacing: .2em; color: #ddd; min-height: 1.3em; }
+#score { display: block; font-size: clamp(9px, 1vw, 13px); letter-spacing: .25em; color: #888; }
+#dash { position: absolute; left: 0; right: 0; bottom: 4%; text-align: center; font-size: clamp(12px, 1.6vw, 20px); letter-spacing: .3em; color: #bbb; }

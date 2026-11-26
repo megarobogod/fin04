@@ -14,6 +14,7 @@ A raycaster FPS for a parent and their son to build together and learn from.
 - GitHub: `megarobogod/fin04`, connected to the Vercel project `fin04`: every push to `main` goes live at https://fin04.vercel.app (the public link; the `-megarobogod` links ask for a Vercel login). Commits are made as `megarobogod` with the GitHub no-reply email.
 
 ## Game design (from the son's prompt)
+- Play style: a fast, aggressive "boomer shooter" (the son pointed at the genre of ULTRAKILL and I AM YOUR BEAST; take the genre's feel, don't copy either game). Fast momentum movement, a dash, a kick, enemies that rush you and fire visible dodgeable bullets, blood that heals you up close, a style meter, a driving soundtrack.
 - 2D-style (raycaster) black and white FPS; red blood is the only colour.
 - Armed with a revolver.
 - Kill gang members in the street, in secluded alleys, and in their hideouts.
@@ -26,6 +27,13 @@ A raycaster FPS for a parent and their son to build together and learn from.
 - Cutscene mood: cold and chilling, not loud. No shocked or shouting faces, no comic sound-effect lettering, no action bursts. Stillness, darkness, empty space, his calm. Subtitles stay.
 
 ## How it's built
+- **Movement** (`player.js` `PLAYER`): velocity with acceleration and friction (`speed`, `accel`, `friction`). Shift = dash (`dashCharges` that recharge; `safeT` makes you immune to bullets briefly). F or middle mouse = kick (`game.playerKick`): knockback and damage, triple on someone in `pain` state. The shotgun's `shove` pushes you back.
+- **Enemy fire** (`enemies.js` `shot`, `main.js` `enemyFire`/`updateBullets`): real projectiles with speed, pellets, spread and aim error, stepped 4 times per frame so they can't skip past you. Dashing through one scores a DODGE. Drawn as glowing `tracer` sprites.
+- **Blood heals** (`BLOOD_RANGE`, `BLOOD_HEAL`, `KILL_HEAL` in main.js): damage you do up close heals you; close kills heal more. This is what keeps you alive, so the game pushes you forward.
+- **Overkill**: a point-blank shotgun kill or a huge overkill gibs the enemy (`game.gib`): blood burst, chunks, no body.
+- **Juice**: `game.hitstop` (a frozen split-second on kills/kicks) and `game.shake` (read by the renderer to jolt the view).
+- **Style** (`RANKS` in main.js): kills, headshots, overkills, kicks (BOOTED), multi-kills and dodges add to a meter that drains over time and when hit; ranks COLD, BRUTAL, RUTHLESS, MERCILESS, VENGEANCE multiply your score. The level-end screen shows score and best rank.
+- **Music** (`audio.js` soundtrack): a 150 BPM loop of synth drums, bass and lead stabs, scheduled ahead with Web Audio; `setIntensity` adds layers as more enemies hunt you and your rank climbs. M mutes. Plays only during play.
 - **Levels with floors** (`levels.js`): a level can have `stages` (floors), each with its own map and settings that override the level's (outdoor, rain, lightning, ambient, angle). Walking onto `^` climbs to the next floor, keeping health and ammo. `floors` maps floor chars to textures; `ceilings` says which floor chars have a roof (no roof = sky and rain, so a level can mix street and indoors).
 - **Water** (`level.water`, the docks use `~`): a floor you can see and shoot across but not walk on (`world.water`, checked in `solidCell` and the path map). Its brightest ripples glow so it reads in the dark. Map edges over water use the `H` harbour texture (distant shore lights).
 - **Sliding doors** (`world.js`): `|` (walk through east-west) and `-` (north-south). The door is a plane across the middle of its square that slides sideways as `open` goes 0..1; the renderer and `castRay` intersect it (`doorHit`). They open for anyone within `DOOR_NEAR` (you or the gang) and close after `DOOR_STAY`. Closed doors block walking (`solidCell`), sight and light; the path map treats them as open.

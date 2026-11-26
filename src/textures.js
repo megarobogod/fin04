@@ -622,6 +622,17 @@ function buildProps() {
     g.fillStyle = css(46); g.fillRect(2, 7, 20, 9);
     g.fillStyle = css(160); g.fillRect(5, 10, 14, 3);
   });
+  // an enemy bullet in flight: a hot white streak that glows in the dark
+  P.tracer = makeTex(12, 6, null, (g) => {
+    const gr = g.createRadialGradient(6, 3, 0.5, 6, 3, 6);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(230,230,230,0.9)'); gr.addColorStop(1, 'rgba(200,200,200,0)');
+    g.fillStyle = gr; ellipse(g, 6, 3, 6, 2.6);
+  }, [[0, 0, 12, 6, 120]]);
+  // a chunk of what used to be a gangster
+  P.chunk = makeTex(8, 8, null, (g) => {
+    g.fillStyle = DARKRED; poly(g, [1, 3, 4, 0, 7, 2, 6, 6, 3, 7, 0, 5]);
+    g.fillStyle = RED; circle(g, 4, 3, 1.6);
+  });
   P.drop = makeTex(4, 4, null, (g) => { g.fillStyle = RED; circle(g, 2, 2, 2); });
   P.dust = makeTex(4, 4, null, (g) => { g.fillStyle = css(150); circle(g, 2, 2, 2); });
   return P;
@@ -811,11 +822,22 @@ function buildShotgunSights() {
   return c;
 }
 
+// Your boot, for the kick: trouser leg and a black shoe, coming up from the bottom of the screen.
+function buildBoot() {
+  const c = newCanvas(160, 200), g = c.getContext('2d');
+  g.fillStyle = css(34); poly(g, [40, 200, 112, 200, 120, 90, 64, 80]);          // trouser leg
+  g.fillStyle = css(22); poly(g, [64, 80, 120, 90, 118, 110, 66, 100]);          // turn-up
+  g.fillStyle = css(14); poly(g, [60, 100, 124, 106, 150, 40, 140, 20, 96, 18, 70, 50]);   // the shoe
+  g.fillStyle = css(70); poly(g, [100, 20, 138, 22, 146, 36, 106, 30]);          // shine on the toe
+  g.fillStyle = css(8); poly(g, [58, 98, 126, 106, 122, 116, 60, 108]);          // the heel and sole
+  return c;
+}
+
 export function buildArt() {
   const people = {};
   for (const name in LOOKS) {
     people[name] = {};
     for (const pose of POSES) people[name][pose] = person(LOOKS[name], pose);
   }
-  return { walls: buildWalls(), floors: buildFloors(), sky: buildSky(), props: buildProps(), people, guns: { revolver: buildGun(), shotgun: buildShotgun() } };
+  return { walls: buildWalls(), floors: buildFloors(), sky: buildSky(), props: buildProps(), people, guns: { revolver: buildGun(), shotgun: buildShotgun() }, boot: buildBoot() };
 }

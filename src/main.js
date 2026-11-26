@@ -20,10 +20,16 @@ const PROPS = {
   trash:  { h: 0.5, solid: 0.26 },
 };
 const WINDOW_LIGHT = { power: 0.4, radius: 2.8 };   // lit windows and the bar sign
-const AMMO_BOX = 12, AMMO_DROP = [3, 6], HEALTH_TIN = 30, SHELL_BOX = 8, SHELL_DROP = [2, 4];
+const AMMO_BOX = 18, AMMO_DROP = [6, 9], HEALTH_TIN = 30, SHELL_BOX = 10, SHELL_DROP = [3, 5];
 const WAKE_ON_SHOT = 13, WAKE_ON_SHOT_BLIND = 8;      // gunshots wake gang members this far away
 const GRAVITY = 5;
-const MIN_ROUNDS = 18;     // you start each level with at least this many spare revolver rounds
+const MIN_ROUNDS = 30;     // you start each level with at least this many spare revolver rounds
+const BLOOD_RANGE = 4;     // hurting a gang member closer than this heals you...
+const BLOOD_HEAL = 0.2;    // ...by this much of the damage you did
+const KILL_HEAL = 10;      // and a close-up kill heals this much more
+const MULTI_TIME = 1.2;    // kills this close together count as a multi-kill
+// the style meter: chain kills to climb the ranks; it drains over time and when you get hit
+const RANKS = [[0, ''], [120, 'COLD'], [350, 'BRUTAL'], [700, 'RUTHLESS'], [1100, 'MERCILESS'], [1600, 'VENGEANCE']];
 
 const TEST = location.hash.includes('test');
 const canvas = document.getElementById('screen');
@@ -47,6 +53,14 @@ class Game {
     this.firePressed = false;
     this.reloadPressed = false;
     this.switchTo = null;        // a weapon you asked to switch to
+    this.dashPressed = false;
+    this.kickPressed = false;
+    this.shake = 0;              // screen shake, fades away
+    this.hitstop = 0;            // a split-second freeze when something big happens
+    this.bullets = [];           // the gang's bullets, in flight
+    this.style = { meter: 0, score: 0, best: 0, label: '', labelT: 0 };
+    this.lastHit = null;
+    this.lastKillT = -9; this.multi = 0;
     this.freeze = false;
     this.hurtFlash = 0;
     this.sprites = [];
@@ -69,6 +83,7 @@ class Game {
     this.time = 0;
     this.clearT = -1;
     this.player = null;
+    this.style = { meter: 0, score: 0, best: 0, label: '', labelT: 0 };
     this.loadStage(stage);
   }
 
@@ -82,7 +97,7 @@ class Game {
     // the stage's own settings (outdoor, rain, light...) override the level's
     const level = (this.level = { ...base, ...stage, name: base.name, floorName: base.stages ? stage.name : '' });
     const world = (this.world = new World(level, this.art, stage.map));
-    this.enemies = []; this.props = []; this.pickups = []; this.particles = [];
+    this.enemies = []; this.props = []; this.pickups = []; this.particles = []; this.bullets = [];
     const lights = [];
     const old = this.player;
     for (const t of world.things) {
@@ -154,6 +169,8 @@ class Game {
   }
 
   update(dt) {
+    this.shake = Math.max(0, this.shake - dt * 3);
+    if (this.hitstop > 0) { this.hitstop -= dt; return; }    // freeze for a split second on big hits
     this.time += dt;
     const world = this.world, p = this.player;
     p.update(dt, this);
@@ -163,6 +180,8 @@ class Game {
     world.updateDoors(dt, actors, (d) => { if (Math.hypot(d.x - p.x, d.y - p.y) < 9) sfx.door(); });
     this.updateFlow();
     updateEnemies(this, dt);
+    this.updateBullets(dt);
+    this.updateStyle(dt);
     this.updateParticles(dt);
     this.updatePickups();
     world.flash = Math.max(0, world.flash - dt * 4);
@@ -260,7 +279,6 @@ class Game {
       const killing = best.hp - dmg <= 0;
       const hitZ = heightAt(bestT);
       this.bleed(best, dx, dy, quiet ? 5 : killing ? 26 : 14, hitZ);
-      if (head && gun.pellets === 1) this.message('HEADSHOT', 0.8);
       // blood sprays onto the wall behind him, at the height the bullet was travelling
       const behind = world.castRay(best.x, best.y, dx, dy, 2.6);
       const splatZ = heightAt(bestT + behind.dist);
@@ -268,7 +286,15 @@ class Game {
         world.splatWall(behind, splatZ, (killing ? 9 : 6) * (1.2 - behind.dist / 2.6) * (quiet ? 0.6 : 1));
       }
       if (!quiet) { sfx.hit(); if (!killing) sfx.grunt(); }
+      // blood heals: hurting them up close keeps you alive
+      if (bestT < BLOOD_RANGE) this.healPlayer(dmg * BLOOD_HEAL);
+      // a point-blank shotgun blast, or far more damage than needed, blows them apart
+      const overkill = killing && !best.def.downed && ((gun.pellets > 1 && bestT < 2.6) || dmg - best.hp > 70);
+      if (gun.shove) { best.vx += dx * 0.9; best.vy += dy * 0.9; }   // the blast knocks them back
+      this.lastHit = { head, overkill, near: bestT < BLOOD_RANGE };
       best.hurt(this, dmg);
+      this.lastHit = null;
+      if (overkill && best.state === 'dying') this.gib(best, dx, dy);
       return true;
     }
     if (endsOn !== 'sky') {
@@ -293,27 +319,140 @@ class Game {
     }
   }
 
-  enemyShot(e, d) {
-    const p = this.player;
+  // A gang member fires: real bullets that fly across the room. You can dodge them.
+  enemyFire(e) {
+    const p = this.player, shot = e.def.shot;
+    const d = Math.hypot(p.x - e.x, p.y - e.y);
     if (e.def.shotgun) sfx.enemyShotgun(d); else sfx.enemyShot(d, e.def.burst > 1);
-    let chance = e.def.accuracy * Math.max(0.12, Math.min(1, 1.15 - d / 14));
-    if (p.moving) chance *= p.running ? 0.55 : 0.75;
-    if (Math.random() < chance) {
-      let dmg = e.def.damage[0] + Math.random() * (e.def.damage[1] - e.def.damage[0]);
-      if (e.def.shotgun) dmg *= Math.max(0.3, Math.min(1, 1.4 - d / 6));   // a shotgun is brutal close up, weak far off
-      p.hp = Math.max(0, p.hp - Math.round(dmg));
-      this.hurtFlash = Math.min(1.2, this.hurtFlash + dmg / 22);
-      p.angle += (Math.random() - 0.5) * 0.05;     // the hit knocks your aim
-      sfx.hurt();
-      if (p.hp <= 0) this.die();
-    } else if (d < 10 && Math.random() < 0.6) {
-      sfx.whiz();
+    const aim = Math.atan2(p.y - e.y, p.x - e.x) + (Math.random() - 0.5) * 2 * shot.aimError;
+    for (let i = 0; i < shot.pellets; i++) {
+      const a = aim + (shot.pellets > 1 ? (Math.random() - 0.5) * 2 * shot.spread : 0);
+      const sp = shot.speed * (0.9 + Math.random() * 0.2);
+      this.bullets.push({
+        x: e.x + Math.cos(a) * 0.4, y: e.y + Math.sin(a) * 0.4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        dmg: shot.damage[0] + Math.random() * (shot.damage[1] - shot.damage[0]), life: 3, near: false, dodged: false,
+      });
     }
+  }
+
+  updateBullets(dt) {
+    const p = this.player, world = this.world, keep = [];
+    for (const b of this.bullets) {
+      b.life -= dt;
+      let alive = b.life > 0;
+      for (let k = 0; k < 4 && alive; k++) {           // small steps, so fast bullets can't skip through you
+        b.x += (b.vx * dt) / 4; b.y += (b.vy * dt) / 4;
+        if (!world.seeThrough(Math.floor(b.x), Math.floor(b.y))) {
+          alive = false;
+          this.particles.push({ kind: 'dust', x: b.x - b.vx * 0.01, y: b.y - b.vy * 0.01, z: 0.5, vx: -b.vx * 0.05, vy: -b.vy * 0.05, vz: 0.5, life: 0.3 });
+          break;
+        }
+        const d = Math.hypot(b.x - p.x, b.y - p.y);
+        if (d < 0.32) {
+          if (p.safeT > 0) { if (!b.dodged) { b.dodged = true; this.addStyle(30, 'DODGE'); } }   // dashing through it
+          else { this.hurtPlayer(b.dmg); alive = false; }
+        } else if (d < 0.9 && !b.near) { b.near = true; sfx.whiz(); }
+      }
+      if (alive) keep.push(b);
+    }
+    this.bullets = keep;
+  }
+
+  hurtPlayer(dmg) {
+    const p = this.player;
+    p.hp = Math.max(0, p.hp - dmg);
+    this.hurtFlash = Math.min(1.2, this.hurtFlash + dmg / 22);
+    this.shake = Math.max(this.shake, 0.45);
+    this.style.meter *= 0.7;                  // getting hit costs you style
+    p.angle += (Math.random() - 0.5) * 0.04;  // the hit knocks your aim
+    sfx.hurt();
+    if (p.hp <= 0) this.die();
+  }
+
+  healPlayer(n) {
+    const p = this.player;
+    if (p.hp >= PLAYER.maxHp) return;
+    p.hp = Math.min(PLAYER.maxHp, p.hp + n);
+  }
+
+  // The kick: knocks the nearest gang member in front of you flying.
+  // Kick someone who's already reeling and it hits three times as hard.
+  playerKick() {
+    const p = this.player, fx = Math.cos(p.angle), fy = Math.sin(p.angle);
+    let best = null, bestD = PLAYER.kickReach;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const rx = e.x - p.x, ry = e.y - p.y, d = Math.hypot(rx, ry);
+      if (d > bestD || (rx * fx + ry * fy) / (d || 1) < 0.6) continue;
+      best = e; bestD = d;
+    }
+    if (!best) return;
+    const dmg = PLAYER.kickDamage * (best.state === 'pain' ? 3 : 1);
+    best.vx += fx * PLAYER.kickPush; best.vy += fy * PLAYER.kickPush;
+    this.bleed(best, fx, fy, 8, 0.5);
+    sfx.kickHit();
+    this.shake = Math.max(this.shake, 0.6);
+    this.hitstop = Math.max(this.hitstop, 0.04);
+    this.healPlayer(5);
+    this.lastHit = { kick: true, near: true };
+    best.hurt(this, dmg, 0.7);
+    this.lastHit = null;
+  }
+
+  // Blown apart: a burst of blood and pieces, and no body left.
+  gib(e, dx, dy) {
+    e.gibbed = true;
+    sfx.gib();
+    this.shake = Math.max(this.shake, 0.9);
+    for (let i = 0; i < 45; i++) {
+      const sp = 1 + Math.random() * 4;
+      this.particles.push({ kind: 'blood', x: e.x, y: e.y, z: 0.3 + Math.random() * 0.6,
+        vx: dx * sp + (Math.random() - 0.5) * 3, vy: dy * sp + (Math.random() - 0.5) * 3, vz: Math.random() * 3, life: 3 });
+    }
+    for (let i = 0; i < 8; i++) {
+      this.particles.push({ kind: 'chunk', x: e.x, y: e.y, z: 0.5, vx: dx * 3 + (Math.random() - 0.5) * 4,
+        vy: dy * 3 + (Math.random() - 0.5) * 4, vz: 1 + Math.random() * 2.5, life: 3 });
+    }
+    this.world.splatFloor(e.x, e.y, 0.45, 0.2);
+  }
+
+  // ---- the style meter ----
+  rank() { let r = 0; RANKS.forEach(([v], i) => { if (this.style.meter >= v) r = i; }); return r; }
+  addStyle(points, label) {
+    const st = this.style;
+    st.meter = Math.min(2000, st.meter + points);
+    st.score += Math.round(points * (1 + this.rank() * 0.5));
+    st.label = label; st.labelT = 1.3;
+  }
+  updateStyle(dt) {
+    const st = this.style;
+    st.meter = Math.max(0, st.meter - dt * (30 + st.meter * 0.1));
+    st.best = Math.max(st.best, this.rank());
+    st.labelT -= dt;
+    // the music builds with the fight: more gang members hunting you and a higher rank = more intense
+    let hunting = 0;
+    for (const e of this.enemies) if (!e.dead && e.state !== 'idle') hunting++;
+    sfx.setIntensity(0.3 + Math.min(4, hunting) * 0.09 + this.rank() * 0.08);
   }
 
   onEnemyKilled(e) {
     this.player.kills++;
     sfx.fall();
+    const hit = this.lastHit || {};
+    let points = 100, label = 'KILL';
+    if (hit.kick) { points = 160; label = 'BOOTED'; }
+    else if (hit.overkill) { points = 160; label = 'OVERKILL'; }
+    else if (hit.head) { points = 150; label = 'HEADSHOT'; }
+    if (this.time - this.lastKillT < MULTI_TIME) {
+      this.multi++;
+      points += 60 * this.multi;
+      label = ['DOUBLE', 'TRIPLE', 'MASSACRE'][Math.min(2, this.multi - 1)] + ' ' + label;
+    } else this.multi = 0;
+    this.lastKillT = this.time;
+    this.addStyle(points, label);
+    if (hit.near) this.healPlayer(KILL_HEAL);
+    this.hitstop = Math.max(this.hitstop, 0.05);
+    this.shake = Math.max(this.shake, 0.5);
     if (Math.random() < e.def.drop) {
       const a = Math.random() * Math.PI * 2;
       const x = e.x + Math.cos(a) * 0.3, y = e.y + Math.sin(a) * 0.3;
@@ -334,6 +473,7 @@ class Game {
 
   interrogate() {
     this.state = 'cutscene';
+    sfx.stopMusic();
     this.adsHeld = false;
     sfx.setRain(false);
     if (document.pointerLockElement) document.exitPointerLock();
@@ -408,6 +548,7 @@ class Game {
       if (world.wallAt(nx, ny)) { q.vx *= -0.2; q.vy *= -0.2; } else { q.x = nx; q.y = ny; }
       if (q.z <= 0) {
         if (q.kind === 'blood') world.splatFloor(q.x, q.y, 0.025 + Math.random() * 0.035);
+        if (q.kind === 'chunk') world.splatFloor(q.x, q.y, 0.07 + Math.random() * 0.05);
         continue;
       }
       if (q.life > 0 && keep.length < 400) keep.push(q);
@@ -438,6 +579,7 @@ class Game {
   // ---- win and lose ----
   die() {
     this.state = 'dead';
+    sfx.stopMusic();
     this.player.hp = 0;
     sfx.setRain(false);
     if (document.pointerLockElement) document.exitPointerLock();
@@ -452,9 +594,11 @@ class Game {
     this.kit = { guns: JSON.parse(JSON.stringify(p.guns)), weapon: p.weapon };   // your guns come with you
     const acc = p.shots ? Math.round((p.hits / p.shots) * 100) : 0;
     const t = Math.round(this.time);
-    const stats = `<p class="stats">Time ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')} &nbsp;·&nbsp; Kills ${p.kills} &nbsp;·&nbsp; Accuracy ${acc}%</p>`;
+    const st = this.style, bestRank = RANKS[st.best][1] || 'NONE';
+    const stats = `<p class="stats">Time ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')} &nbsp;·&nbsp; Kills ${p.kills} &nbsp;·&nbsp; Accuracy ${acc}%</p><p class="stats">Score ${st.score} &nbsp;·&nbsp; Best rank <b class="red">${bestRank}</b></p>`;
     this.state = last ? 'won' : 'clear';
     sfx.setRain(false);
+    sfx.stopMusic();
     if (document.pointerLockElement) document.exitPointerLock();
     if (last) this.showOverlay(`<h2>THE VIPERS ARE FINISHED</h2><p>She's safe. The rain washes the streets clean. For tonight.</p>${stats}<p class="go">Click to play again</p>`);
     else this.showOverlay(`<h2>${this.level.name} — CLEAR</h2>${extra}${stats}<p class="go">Click to go on</p>`);
@@ -474,6 +618,7 @@ class Game {
 
   begin() {
     this.state = 'play';
+    sfx.startMusic();
     this.showOverlay(null);
     this.last = performance.now();
     this.outside = null;
@@ -501,6 +646,7 @@ class Game {
     if (this.state !== 'play') return;
     this.state = 'paused';
     sfx.setRain(false);
+    sfx.stopMusic();
     this.showOverlay(`<h2>PAUSED</h2><p class="go">Click to carry on</p>`);
   }
 
@@ -516,8 +662,12 @@ class Game {
     const art = this.art, s = [];
     for (const p of this.props) s.push({ x: p.x, y: p.y, z: p.z, h: p.h, tex: p.tex });
     for (const k of this.pickups) s.push({ x: k.x, y: k.y, z: 0, h: k.kind === 'health' ? 0.2 : 0.16, tex: art.props[k.kind] });
-    for (const e of this.enemies) s.push({ x: e.x, y: e.y, z: 0, h: e.def.height, tex: art.people[e.look][e.frame()] });
-    for (const q of this.particles) s.push({ x: q.x, y: q.y, z: q.z, h: q.kind === 'blood' ? 0.035 : 0.05, tex: art.props[q.kind === 'blood' ? 'drop' : 'dust'], bright: q.kind === 'blood' ? 1 : undefined });
+    for (const e of this.enemies) { const f = e.frame(); if (f) s.push({ x: e.x, y: e.y, z: 0, h: e.def.height, tex: art.people[e.look][f] }); }
+    for (const b of this.bullets) s.push({ x: b.x, y: b.y, z: 0.45, h: 0.1, tex: art.props.tracer });
+    for (const q of this.particles) {
+      const tex = q.kind === 'blood' ? art.props.drop : q.kind === 'chunk' ? art.props.chunk : art.props.dust;
+      s.push({ x: q.x, y: q.y, z: q.z, h: q.kind === 'blood' ? 0.035 : q.kind === 'chunk' ? 0.08 : 0.05, tex, bright: q.kind === 'dust' ? undefined : 1 });
+    }
     this.sprites = s;
     this.renderer.render(this, dt);
     this.updateHud();
@@ -526,16 +676,24 @@ class Game {
   updateHud() {
     const p = this.player, c = this.hudCache;
     const set = (id, v) => { if (c[id] !== v) { c[id] = v; $(id).textContent = v; } };
-    set('hp', String(p.hp));
+    const hp = Math.ceil(p.hp);
+    set('hp', String(hp));
     const cap = p.gun.capacity;
     set('cyl', p.weapon === 'shotgun' ? '■'.repeat(p.loaded) + '□'.repeat(cap - p.loaded) : '●'.repeat(p.loaded) + '○'.repeat(cap - p.loaded));
     set('reserve', String(p.reserve));
     set('wname', p.gun.name + (p.has('shotgun') ? (p.weapon === 'revolver' ? '  ·  2: SHOTGUN' : '  ·  1: REVOLVER') : ''));
     set('enemies', String(this.enemies.filter((e) => !e.dead).length));
     set('floor', this.level.floorName || '');
-    const bar = `${p.hp}%`;
+    const bar = `${hp}%`;
     if (c.bar !== bar) { c.bar = bar; $('hpbar').style.width = bar; }
-    const low = p.hp <= 30;
+    const low = hp <= 30;
+    const st = this.style, r = this.rank();
+    set('rank', RANKS[r][1]);
+    const sbar = r === RANKS.length - 1 ? 100 : Math.round(((st.meter - RANKS[r][0]) / (RANKS[r + 1][0] - RANKS[r][0])) * 100);
+    if (c.sbar !== sbar) { c.sbar = sbar; $('stylebar').style.width = sbar + '%'; }
+    set('slabel', st.labelT > 0 ? '+ ' + st.label : '');
+    set('score', String(st.score));
+    set('dash', '▰'.repeat(Math.floor(p.dashes)) + '▱'.repeat(2 - Math.floor(p.dashes)));
     if (c.low !== low) { c.low = low; $('health').classList.toggle('low', low); }
     const rl = p.reloading ? 'RELOADING' : p.loaded === 0 ? (p.reserve ? 'PRESS R' : 'OUT OF AMMO') : '';
     set('reload', rl);
@@ -549,7 +707,8 @@ window.game = game;
 function showTitle() {
   game.showOverlay(`<h1>SIX<br>CHAMBERS</h1>
     <p>The Vipers took your wife. You've got a revolver, and six rounds at a time.</p>
-    <p class="keys">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Right-click aim &nbsp;·&nbsp; Click shoot<br>R reload &nbsp;·&nbsp; Shift run &nbsp;·&nbsp; 1 / 2 or wheel switch guns &nbsp;·&nbsp; Arrow keys turn</p>
+    <p class="keys">WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; Right-click aim<br>Shift dash &nbsp;·&nbsp; F kick &nbsp;·&nbsp; R reload &nbsp;·&nbsp; 1 / 2 or wheel switch guns &nbsp;·&nbsp; M music</p>
+    <p class="keys">Get in close: hurting them up close heals you. Chain kills to climb the ranks.</p>
     <p class="go">Click to start</p>`);
 }
 
@@ -559,6 +718,9 @@ addEventListener('keydown', (e) => {
   else if (game.state === 'cutscene' && (e.code === 'Space' || e.code === 'Escape')) game.cutscene.skip();
   else if (e.code === 'Space') game.firePressed = game.state === 'play';
   if (e.code === 'KeyR') game.reloadPressed = game.state === 'play';
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') game.dashPressed = game.state === 'play';
+  if (e.code === 'KeyF') game.kickPressed = game.state === 'play';
+  if (e.code === 'KeyM') game.message(sfx.toggleMute() ? 'MUSIC OFF' : 'MUSIC ON', 1.2);
   if (e.code === 'Digit1') game.switchTo = 'revolver';
   if (e.code === 'Digit2') game.switchTo = 'shotgun';
   if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
@@ -576,6 +738,7 @@ addEventListener('mousemove', (e) => {
 });
 addEventListener('mousedown', (e) => {
   if (e.button === 2) { game.adsHeld = true; return; }
+  if (e.button === 1) { e.preventDefault(); if (game.state === 'play') game.kickPressed = true; return; }   // middle button kicks too
   if (e.button !== 0) return;
   if (game.state === 'play' && (TEST || document.pointerLockElement === canvas)) game.firePressed = true;
 });

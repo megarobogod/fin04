@@ -1,48 +1,54 @@
-// player.js - you: moving, turning, and your guns (the revolver, and later the shotgun).
+// player.js - you: fast movement with momentum, the dash, the kick, and your
+// guns (the revolver, and later the shotgun).
 
 import * as sfx from './audio.js';
 
 // ---- tuning numbers ----
 export const PLAYER = {
-  walk: 2.8,            // squares per second
-  run: 4.6,             // holding Shift
-  turnKeys: 2.6,        // radians per second with the arrow keys
+  speed: 6.2,           // top running speed (squares per second)
+  accel: 14,            // how quickly you get up to speed
+  friction: 11,         // how quickly you stop when you let go
+  dashSpeed: 19,        // speed during a dash
+  dashTime: 0.16,       // how long a dash lasts (seconds)
+  dashCharges: 2,       // dashes you can do back to back
+  dashRecharge: 1.1,    // seconds to get one dash charge back
+  dashSafe: 0.26,       // bullets can't hurt you for this long after a dash starts
+  kickTime: 0.28,       // how long the kick takes
+  kickCool: 0.45,       // seconds between kicks
+  kickReach: 1.6,       // how far your kick reaches (squares)
+  kickDamage: 45,       // and how hard it hits (three times as hard on someone already reeling)
+  kickPush: 9,          // how far it sends them flying
+  turnKeys: 2.8,        // radians per second with the arrow keys
   mouse: 0.0024,        // radians per pixel of mouse movement
   mouseY: 0.0020,       // same, for looking up and down
   maxPitch: 0.6,        // how far you can look up or down (radians, about 34 degrees)
   radius: 0.24,         // how fat you are (for bumping into walls)
   maxHp: 100,
   cylinder: 6,          // rounds in the revolver
-  startReserve: 24,     // spare rounds at the start of a level
-  maxReserve: 60,
-  fireDelay: 0.42,      // seconds between shots
-  openTime: 0.4,        // swing the cylinder out
-  roundTime: 0.34,      // push one round in
-  damage: [55, 78],     // a thug has 70 health: one or two shots to the body
-  headshot: 2.6,        // shots to the head do this many times more
+  startReserve: 36,     // spare rounds at the start
   headLine: 0.72,       // the head starts this far up a gang member (0 = feet, 1 = top of hat)
-  spread: 0.012,        // aim wobble standing still (radians)
-  moveSpread: 0.025,    // extra wobble while walking
-  runSpread: 0.05,      // extra wobble while running
+  spread: 0.01,         // aim wobble (radians)
+  moveSpread: 0.008,    // a tiny bit more while moving: this game wants you moving
   // aiming down the sights (hold right mouse button)
-  adsZoom: 1.6,         // how much it zooms in
-  adsSpeed: 0.5,        // you walk at half speed while aiming (and can't run)
-  adsSpread: 0.25,      // wobble is cut to a quarter
+  adsZoom: 1.5,         // how much it zooms in
+  adsSpeed: 0.6,        // you move a bit slower while aiming
+  adsSpread: 0.3,       // wobble is cut right down
   adsMouse: 0.6,        // mouse turns slower so you can line up small targets
-  adsTime: 0.12,        // seconds to raise the gun (roughly)
+  adsTime: 0.1,         // seconds to raise the gun (roughly)
 };
 
 // ---- the guns ----
 // capacity: rounds loaded at once.  pellets: bullets per shot (the shotgun fires a spray).
 // damage: per pellet.  cone: how wide the pellets spread.  range: pellets weaken past this.
+// shove: how hard firing pushes you back.
 export const WEAPONS = {
   revolver: {
-    name: 'REVOLVER', capacity: 6, maxReserve: 60, fireDelay: 0.42, openTime: 0.4, roundTime: 0.34,
-    damage: [55, 78], pellets: 1, cone: 0, headshot: 2.6, range: 9, recoil: 1, flash: 0.45,
+    name: 'REVOLVER', capacity: 6, maxReserve: 72, fireDelay: 0.26, openTime: 0.22, roundTime: 0.11,
+    damage: [74, 92], pellets: 1, cone: 0, headshot: 2.5, range: 10, recoil: 1, flash: 0.45, shove: 0,
   },
   shotgun: {
-    name: 'SHOTGUN', capacity: 2, maxReserve: 24, fireDelay: 0.3, openTime: 0.45, roundTime: 0.42,
-    damage: [16, 22], pellets: 9, cone: 0.07, headshot: 1.6, range: 4, recoil: 1.7, flash: 0.75,
+    name: 'SHOTGUN', capacity: 2, maxReserve: 30, fireDelay: 0.36, openTime: 0.2, roundTime: 0.28,
+    damage: [17, 23], pellets: 10, cone: 0.07, headshot: 1.6, range: 4.5, recoil: 1.8, flash: 0.75, shove: 3.5,
   },
 };
 
@@ -50,6 +56,7 @@ export class Player {
   // `kit` carries your guns and ammo from one floor or level to the next
   constructor(x, y, angle, kit) {
     this.x = x; this.y = y; this.angle = angle;
+    this.vx = 0; this.vy = 0;    // your momentum
     this.pitch = 0;              // looking up (+) or down (-)
     this.ads = 0;                // 0 = gun at the hip, 1 = looking down the sights
     this.zoom = 1;
@@ -60,8 +67,14 @@ export class Player {
     this.reloading = false;
     this.reloadT = 0;
     this.reloadPose = 0;         // 0 = gun up, 1 = gun lowered for reloading
-    this.switchPose = 0;         // lowers the gun while you swap weapons
+    this.switchPose = 0;         // lowers the gun while you swap weapons or kick
     this.switchT = 0;
+    this.dashT = 0;              // > 0 while dashing
+    this.dashDX = 0; this.dashDY = 0;
+    this.dashes = PLAYER.dashCharges;
+    this.safeT = 0;              // > 0: bullets pass you by
+    this.kickT = 0;              // > 0 while kicking
+    this.kickCool = 0;
     this.recoil = 0;
     this.flashT = 0;
     this.bobPhase = 0; this.bobAmt = 0; this.bobY = 0;
@@ -76,6 +89,7 @@ export class Player {
   get reserve() { return this.guns[this.weapon].reserve; }
   set reserve(v) { this.guns[this.weapon].reserve = v; }
   has(name) { return !!this.guns[name]; }
+  get dashing() { return this.dashT > 0; }
 
   give(name, loaded, reserve) {
     if (!this.guns[name]) this.guns[name] = { loaded, reserve };
@@ -85,8 +99,8 @@ export class Player {
     if (!this.guns[name] || name === this.weapon || this.switchT > 0) return;
     this.reloading = false;
     this.weapon = name;
-    this.switchT = 0.4;
-    this.cool = Math.max(this.cool, 0.35);
+    this.switchT = 0.3;
+    this.cool = Math.max(this.cool, 0.25);
     sfx.click();
   }
 
@@ -109,38 +123,81 @@ export class Player {
     this.pitch = Math.max(-PLAYER.maxPitch, Math.min(PLAYER.maxPitch, this.pitch));
     this.angle = ((this.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
 
-    // walking
+    // which way you want to go
     let f = 0, s = 0;
     if (k.has('KeyW') || k.has('ArrowUp')) f += 1;
     if (k.has('KeyS') || k.has('ArrowDown')) f -= 1;
     if (k.has('KeyD')) s += 1;
     if (k.has('KeyA')) s -= 1;
-    const len = Math.hypot(f, s);
-    this.moving = len > 0;
-    this.running = this.moving && this.ads < 0.5 && (k.has('ShiftLeft') || k.has('ShiftRight'));
-    if (this.moving) {
-      const speed = (this.running ? PLAYER.run : PLAYER.walk) * (1 - (1 - PLAYER.adsSpeed) * this.ads) * dt / len;
-      const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
-      const dx = (ca * f - sa * s) * speed, dy = (sa * f + ca * s) * speed;
-      game.world.move(this, dx, dy, PLAYER.radius);
-      game.pushOutOfProps(this, PLAYER.radius);
-      this.bobPhase += dt * (this.running ? 13 : 9);
+    const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
+    let wx = ca * f - sa * s, wy = sa * f + ca * s;
+    const wl = Math.hypot(wx, wy);
+    if (wl > 0) { wx /= wl; wy /= wl; }
+
+    // the dash: a burst of speed in the way you're moving (or forward)
+    this.dashes = Math.min(PLAYER.dashCharges, this.dashes + dt / PLAYER.dashRecharge);
+    this.safeT -= dt;
+    if (game.dashPressed) {
+      game.dashPressed = false;
+      if (this.dashes >= 1 && !this.dashing) {
+        this.dashes -= 1;
+        this.dashT = PLAYER.dashTime;
+        this.safeT = PLAYER.dashSafe;
+        this.dashDX = wl > 0 ? wx : ca; this.dashDY = wl > 0 ? wy : sa;
+        sfx.dash();
+      }
     }
-    // head bob eases in and out
-    const want = (this.moving ? (this.running ? 1 : 0.6) : 0) * (1 - 0.7 * this.ads);
+    if (this.dashing) {
+      this.dashT -= dt;
+      this.vx = this.dashDX * PLAYER.dashSpeed; this.vy = this.dashDY * PLAYER.dashSpeed;
+      if (this.dashT <= 0) { this.vx *= 0.45; this.vy *= 0.45; }       // come out of it still moving fast
+    } else {
+      // momentum: speed up towards where you want to go, slow down when you let go
+      const top = PLAYER.speed * (1 - (1 - PLAYER.adsSpeed) * this.ads);
+      const rate = Math.min(1, dt * (wl > 0 ? PLAYER.accel : PLAYER.friction));
+      this.vx += (wx * top - this.vx) * rate;
+      this.vy += (wy * top - this.vy) * rate;
+    }
+    const ox = this.x, oy = this.y;
+    game.world.move(this, this.vx * dt, this.vy * dt, PLAYER.radius);
+    game.pushOutOfProps(this, PLAYER.radius);
+    // bumping into a wall kills your speed in that direction
+    if (Math.abs(this.x - ox) < Math.abs(this.vx * dt) * 0.5) this.vx = 0;
+    if (Math.abs(this.y - oy) < Math.abs(this.vy * dt) * 0.5) this.vy = 0;
+    const speed = Math.hypot(this.vx, this.vy);
+    this.moving = speed > 0.6;
+    this.running = this.dashing;
+    if (this.moving) this.bobPhase += dt * (6 + speed * 1.3);
+    // head bob eases in and out with your speed
+    const want = Math.min(1, speed / PLAYER.speed) * (1 - 0.7 * this.ads);
     this.bobAmt += (want - this.bobAmt) * Math.min(1, dt * 8);
     this.bobY = Math.abs(Math.sin(this.bobPhase)) * 3 * this.bobAmt;
+
+    // the kick
+    this.kickCool -= dt;
+    if (this.kickT > 0) this.kickT -= dt;
+    if (game.kickPressed) {
+      game.kickPressed = false;
+      if (this.kickCool <= 0) {
+        this.kickT = PLAYER.kickTime;
+        this.kickCool = PLAYER.kickCool;
+        sfx.swish();
+        game.playerKick();
+      }
+    }
 
     // the gun
     this.cool -= dt;
     this.flashT -= dt;
     this.switchT -= dt;
-    this.recoil = Math.max(0, this.recoil - dt * 5);
+    this.recoil = Math.max(0, this.recoil - dt * 6);
     if (this.reloading) this.stepReload(dt);
     const wantPose = this.reloading ? 1 : 0;
-    this.reloadPose += (wantPose - this.reloadPose) * Math.min(1, dt * 10);
-    // switching: the gun drops out of sight, then the other one comes up
-    this.switchPose = this.switchT > 0 ? Math.sin(Math.min(1, (0.4 - this.switchT) / 0.4) * Math.PI) : 0;
+    this.reloadPose += (wantPose - this.reloadPose) * Math.min(1, dt * 14);
+    // switching or kicking: the gun dips out of the way
+    const sw = this.switchT > 0 ? Math.sin(Math.min(1, (0.3 - this.switchT) / 0.3) * Math.PI) : 0;
+    const kick = this.kickT > 0 ? Math.sin((1 - this.kickT / PLAYER.kickTime) * Math.PI) * 0.6 : 0;
+    this.switchPose = Math.max(sw, kick);
 
     if (game.switchTo) { this.switchTo(game.switchTo); game.switchTo = null; }
     if (game.firePressed) { game.firePressed = false; this.fire(game); }
@@ -152,7 +209,7 @@ export class Player {
     const gun = this.gun;
     if (this.loaded === 0) {
       sfx.click();
-      this.cool = 0.25;
+      this.cool = 0.2;
       this.startReload();
       return;
     }
@@ -163,10 +220,13 @@ export class Player {
     this.flashT = 0.06;
     this.shots++;
     game.world.flash = gun.flash;
+    game.shake = Math.max(game.shake, gun.recoil * 0.25);
     if (this.weapon === 'shotgun') sfx.shotgun(); else sfx.revolver();
     game.shotNoise();
-    let spread = PLAYER.spread;
-    if (this.moving) spread += this.running ? PLAYER.runSpread : PLAYER.moveSpread;
+    // the shotgun shoves you backwards
+    this.vx -= Math.cos(this.angle) * gun.shove;
+    this.vy -= Math.sin(this.angle) * gun.shove;
+    let spread = PLAYER.spread + (this.moving ? PLAYER.moveSpread : 0);
     spread *= 1 - (1 - PLAYER.adsSpread) * this.ads;
     // where you're aiming (with a little wobble)...
     const aim = this.angle + (Math.random() - 0.5) * 2 * spread;
@@ -189,7 +249,7 @@ export class Player {
     if (this.weapon === 'shotgun') sfx.breakOpen(); else sfx.cylinderOpen();
   }
 
-  // One round (or shell) at a time. Fire to stop early.
+  // One round (or shell) at a time, fast. Fire to stop early.
   stepReload(dt) {
     this.reloadT -= dt;
     if (this.reloadT > 0) return;
@@ -201,7 +261,7 @@ export class Player {
     }
     if (this.loaded >= this.gun.capacity || this.reserve <= 0) {
       this.reloading = false;
-      this.cool = 0.2;
+      this.cool = 0.12;
       if (this.weapon === 'shotgun') sfx.snapShut(); else sfx.cylinderClose();
     }
   }

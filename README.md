@@ -12,13 +12,19 @@ out of three levels: **The Dellwood** (an apartment building, three floors, with
 Vipers lieutenant at the top), **The Docks** at Pier Nine, and **The Hideout** inside the
 Pier Nine warehouse, where the boss is waiting.
 
+It plays fast: you move quickly, dash through bullets, kick the gang across the room,
+and hurting them up close heals you, so the way to survive is to attack. Chain kills to
+climb the style ranks.
+
 ## Controls
 - **WASD**: move. **Mouse**: look around, including up and down. **Click** or **Space**: shoot.
 - **Hold right-click**: aim down the revolver's sights. It zooms in and your shots go dead straight, but you walk slower and can't run.
   Aim for the head: headshots do over twice the damage.
 - **R**: reload (one round at a time; shoot to stop early).
 - **1 / 2** or the **mouse wheel**: switch between the revolver and the shotgun (once you've taken it).
-- **Shift**: run (faster, but your aim wobbles more).
+- **Shift**: dash (two charges; bullets can't hit you mid-dash).
+- **F** or **middle mouse**: kick. Kick someone who's reeling and it hits three times as hard.
+- **M**: music on/off.
 - **Arrow keys** / **Q E**: turn without the mouse.
 
 Play it online: https://fin04.vercel.app

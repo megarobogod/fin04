@@ -148,3 +148,100 @@ export function sting() {
   tone({ vol: 0.6, dur: 3.0, f0: 55, f1: 41 });
   burst({ vol: 0.35, dur: 2.5, f0: 300, f1: 40, q: 0.3 });
 }
+
+// ---- fast-paced extras ----
+export function dash() { burst({ vol: 0.35, dur: 0.22, f0: 1800, f1: 400, type: 'bandpass', q: 1.5 }); }
+export function swish() { burst({ vol: 0.25, dur: 0.14, f0: 2500, f1: 700, type: 'bandpass', q: 2 }); }
+export function kickHit() { tone({ vol: 0.8, dur: 0.16, f0: 160, f1: 50 }); burst({ vol: 0.6, dur: 0.12, f0: 1200, f1: 200 }); }
+export function gib() { burst({ vol: 0.8, dur: 0.35, f0: 900, f1: 120, q: 0.6 }); burst({ vol: 0.4, dur: 0.5, f0: 2200, f1: 300, delay: 0.05 }); }
+export function heal() { tone({ vol: 0.06, dur: 0.12, f0: 330, f1: 440, type: 'triangle' }); }
+
+// ---- the soundtrack ----
+// A driving loop made of oscillators and noise, scheduled a moment ahead so it
+// keeps perfect time. `setIntensity` (0..1) brings in more layers as the fight heats up.
+const BPM = 150, STEP = 60 / BPM / 4;        // one step = a 16th note
+const ROOT = 41.2;                           // E1, the bottom note
+// the bass line, as semitones above E, over 4 bars of 16 steps (null = rest)
+const BASS = [
+  [0, null, 0, 0, 3, null, 0, null, 6, null, 5, null, 3, null, 2, null],
+  [0, null, 0, 0, 3, null, 0, null, 7, null, 6, null, 5, null, 3, null],
+  [5, null, 5, 5, 8, null, 5, null, 10, null, 8, null, 7, null, 5, null],
+  [0, null, 0, 0, 3, null, 0, 12, 11, null, 10, null, 7, null, 6, 3],
+];
+const LEAD = [12, 15, 19, 17, 15, 14, 12, 10];   // a cold stab of a melody on top, when it gets intense
+let music = null, muted = false;
+
+function oscAt(t, type, f0, f1, dur, vol, dest, cutoff) {
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  let node = o;
+  if (cutoff) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; f.Q.value = 6; o.connect(f); node = f; }
+  node.connect(g).connect(dest);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function noiseAt(t, dur, type, freq, q, vol, dest) {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf;
+  const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(f).connect(g).connect(dest);
+  src.start(t, Math.random() * 1.5, dur + 0.05);
+}
+
+function playStep(step, t) {
+  const m = music, out = m.gain, i = m.intensity;
+  const bar = Math.floor(step / 16) % 4, s = step % 16;
+  // drums: four on the floor, snare on 2 and 4, hats when it gets going
+  if (s % 4 === 0) oscAt(t, 'sine', 150, 42, 0.28, 0.9, out);
+  if (i > 0.65 && s === 10) oscAt(t, 'sine', 150, 42, 0.2, 0.6, out);
+  if (s === 4 || s === 12) { noiseAt(t, 0.18, 'bandpass', 1900, 0.8, 0.45, out); oscAt(t, 'triangle', 200, 120, 0.1, 0.3, out); }
+  if (i > 0.3 && s % 2 === 1) noiseAt(t, 0.035, 'highpass', 7500, 0.7, 0.14, out);
+  if (i > 0.5 && s === 14) noiseAt(t, 0.16, 'highpass', 6500, 0.7, 0.12, out);
+  // bass
+  const n = BASS[bar][s];
+  if (n !== null) oscAt(t, 'sawtooth', ROOT * Math.pow(2, n / 12), ROOT * Math.pow(2, n / 12), STEP * 1.8, 0.32, out, 260 + i * 900);
+  // lead stabs on top
+  if (i > 0.72 && s % 4 === 2) {
+    const note = LEAD[(bar * 4 + s / 4 | 0) % LEAD.length];
+    oscAt(t, 'square', ROOT * 4 * Math.pow(2, note / 12), ROOT * 4 * Math.pow(2, note / 12), 0.12, 0.07, out, 2200);
+  }
+}
+
+function schedule() {
+  if (!music) return;
+  while (music.next < ctx.currentTime + 0.12) {
+    playStep(music.step, music.next);
+    music.step++;
+    music.next += STEP;
+  }
+}
+
+export function startMusic() {
+  if (!ctx || music) return;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(muted ? 0 : 0.3, ctx.currentTime, 0.3);
+  gain.connect(master);
+  music = { gain, step: 0, next: ctx.currentTime + 0.08, intensity: 0.35, timer: setInterval(schedule, 25) };
+}
+export function stopMusic() {
+  if (!music) return;
+  const m = music;
+  music = null;
+  clearInterval(m.timer);
+  m.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
+  setTimeout(() => m.gain.disconnect(), 1000);
+}
+export function setIntensity(v) { if (music) music.intensity = Math.max(0, Math.min(1, v)); }
+export function toggleMute() {
+  muted = !muted;
+  if (music) music.gain.gain.setTargetAtTime(muted ? 0 : 0.3, ctx.currentTime, 0.1);
+  return muted;
+}
